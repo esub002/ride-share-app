@@ -1,0 +1,40 @@
+# GitHub Actions workflow for Node.js backend CI/CD
+name: CI/CD
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ride_share
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./backend
+      - name: Run tests
+        run: npm test
+        working-directory: ./backend
+      - name: Run npm audit for vulnerabilities
+        run: npm audit --audit-level=high
+        working-directory: ./backend
+      # Add deploy step here for your platform
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-test-results
+          path: ./backend

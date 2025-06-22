@@ -1,0 +1,26 @@
+{
+  "dependencies": {
+    "socket.io-client": "^4.8.1",
+    "pg": "^8.11.3",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "express-validator": "^7.0.1",
+    "express-rate-limit": "^7.0.0",
+    "morgan": "^1.10.0",
+    "cors": "^2.8.5",
+    "nodemailer": "^6.9.8",
+    "i18n": "^0.15.1",
+    "swagger-ui-express": "^4.7.1",
+    "swagger-jsdoc": "^6.2.8"
+  },
+  "scripts": {
+    "start:backend": "node backend/server.js",
+    "test:driver": "node test-socket-client.js driver",
+    "test:rider": "node test-socket-client.js rider",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4"
+  }
+}

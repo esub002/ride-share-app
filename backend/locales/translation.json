@@ -1,0 +1,26 @@
+{
+  "en": {
+    "Verify your RideShare account": "Verify your RideShare account",
+    "Welcome to RideShare, %s! Please verify your account: %s": "Welcome to RideShare, %s! Please verify your account: %s",
+    "Reset your RideShare password": "Reset your RideShare password",
+    "Reset your password: %s": "Reset your password: %s"
+  },
+  "es": {
+    "Verify your RideShare account": "Verifica tu cuenta de RideShare",
+    "Welcome to RideShare, %s! Please verify your account: %s": "¡Bienvenido a RideShare, %s! Por favor verifica tu cuenta: %s",
+    "Reset your RideShare password": "Restablece tu contraseña de RideShare",
+    "Reset your password: %s": "Restablece tu contraseña: %s"
+  },
+  "fr": {
+    "Verify your RideShare account": "Vérifiez votre compte RideShare",
+    "Welcome to RideShare, %s! Please verify your account: %s": "Bienvenue sur RideShare, %s ! Veuillez vérifier votre compte : %s",
+    "Reset your RideShare password": "Réinitialisez votre mot de passe RideShare",
+    "Reset your password: %s": "Réinitialisez votre mot de passe : %s"
+  },
+  "de": {
+    "Verify your RideShare account": "Bestätigen Sie Ihr RideShare-Konto",
+    "Welcome to RideShare, %s! Please verify your account: %s": "Willkommen bei RideShare, %s! Bitte bestätigen Sie Ihr Konto: %s",
+    "Reset your RideShare password": "Setzen Sie Ihr RideShare-Passwort zurück",
+    "Reset your password: %s": "Setzen Sie Ihr Passwort zurück: %s"
+  }
+}
