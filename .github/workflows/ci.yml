@@ -23,15 +23,34 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-      - name: Install dependencies
+
+      # Backend
+      - name: Install backend dependencies
         run: npm install
         working-directory: ./backend
-      - name: Run tests
+      - name: Run backend tests
         run: npm test
         working-directory: ./backend
-      - name: Run npm audit for vulnerabilities
+      - name: Run npm audit for vulnerabilities (backend)
         run: npm audit --audit-level=high
         working-directory: ./backend
+
+      # Frontend
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ./frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: ./frontend
+
+      # Mobile
+      - name: Install mobile dependencies
+        run: npm install
+        working-directory: ./mobile
+      - name: Check mobile build (Expo)
+        run: npx expo install && npx expo export --platform web
+        working-directory: ./mobile
+
       # Deploy to Render: Render will auto-deploy from GitHub. No manual deploy step needed here.
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3

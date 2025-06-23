@@ -40,16 +40,14 @@ docker-volumes/
 *.iml
 
 # Ignore Expo Router app directory (if not used)
-app/
-
-# Uncomment below if you want to ignore all files in mobile/assets (except tracked ones)
-# mobile/assets/*
-# !mobile/assets/.gitkeep
+# app/
 
 # Do NOT ignore main project folders
 # Remove or comment out any lines that ignore these folders:
 # frontend/
 # mobile/
 # infrastructure/
-
-# Add more as needed for your project
+# Remove or comment out any lines that ignore these folders:
+# frontend/
+# mobile/
+# infrastructure/
