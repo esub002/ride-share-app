@@ -1,3 +1,15 @@
+[![CI/CD](https://github.com/esub002/ride-share-app/actions/workflows/ci.yml/badge.svg)](https://github.com/esub002/ride-share-app/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js Version](https://img.shields.io/badge/node-18.x-brightgreen.svg)](https://nodejs.org/)
+[![Issues](https://img.shields.io/github/issues/esub002/ride-share-app.svg)](https://github.com/esub002/ride-share-app/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/esub002/ride-share-app.svg)](https://github.com/esub002/ride-share-app/pulls)
+[![Last Commit](https://img.shields.io/github/last-commit/esub002/ride-share-app.svg)](https://github.com/esub002/ride-share-app/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/esub002/ride-share-app.svg)](https://github.com/esub002/ride-share-app/graphs/contributors)
+[![GitHub stars](https://img.shields.io/github/stars/esub002/ride-share-app.svg)](https://github.com/esub002/ride-share-app/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/esub002/ride-share-app.svg)](https://github.com/esub002/ride-share-app/network)
+![React](https://img.shields.io/badge/frontend-React-blue)
+![Express](https://img.shields.io/badge/backend-Express-green)
+
 # Ride Share App
 
 A full-stack real-time ride sharing platform with:

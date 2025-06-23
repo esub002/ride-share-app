@@ -1,0 +1,49 @@
+# Ignore node_modules and build artifacts
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+*.log
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore Expo web build output
+web-build/
+
+# Ignore SQLite database files (if any)
+*.db
+
+# Ignore coverage reports
+coverage/
+
+# Ignore VSCode settings
+.vscode/
+
+# Ignore test output
+*.test.js.snap
+
+# Ignore Docker volumes (if any)
+docker-volumes/
+
+# Ignore all log files
+*.log
+
+# Ignore local IDE/project files
+.idea/
+*.iml
+
+# Ignore Expo Router app directory (if not used)
+app/
+
+# Uncomment below if you want to ignore all files in mobile/assets (except tracked ones)
+# mobile/assets/*
+# !mobile/assets/.gitkeep
+
+# Add more as needed for your project
