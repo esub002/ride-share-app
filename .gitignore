@@ -46,4 +46,10 @@ app/
 # mobile/assets/*
 # !mobile/assets/.gitkeep
 
+# Do NOT ignore main project folders
+# Remove or comment out any lines that ignore these folders:
+# frontend/
+# mobile/
+# infrastructure/
+
 # Add more as needed for your project
