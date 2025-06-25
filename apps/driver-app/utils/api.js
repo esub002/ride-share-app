@@ -1,0 +1,1 @@
+export const API_BASE_URL = "http://10.1.10.243:3000"; // Your computer's IP address 

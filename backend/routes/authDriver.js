@@ -1,13 +1,11 @@
-// authDriver.js - Driver authentication, registration, verification, and password reset
+// authDriver.js - Driver authentication with mobile OTP (fake OTP for testing)
 
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const pool = require('../db');
 const rateLimit = require('express-rate-limit');
-const sendEmail = require('../utils/email');
+// const sendEmail = require('../utils/email'); // Commented out email functionality
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Use env var in production
@@ -19,11 +17,19 @@ const authLimiter = rateLimit({
   message: 'Too many authentication attempts, please try again later.'
 });
 
+// In-memory storage for OTP (in production, use Redis or database)
+const otpStore = new Map();
+
+// Generate fake OTP (always returns 123456 for testing)
+function generateFakeOTP() {
+  return '123456';
+}
+
 /**
  * @swagger
- * /api/auth/driver/register:
+ * /api/auth/driver/send-otp:
  *   post:
- *     summary: Register a new driver
+ *     summary: Send OTP to driver's mobile number
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -32,61 +38,139 @@ const authLimiter = rateLimit({
  *           schema:
  *             type: object
  *             properties:
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ */
+
+/**
+ * @swagger
+ * /api/auth/driver/verify-otp:
+ *   post:
+ *     summary: Verify OTP and login/register driver
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *               otp:
+ *                 type: string
  *               name:
  *                 type: string
  *               car_info:
  *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
  *     responses:
  *       200:
- *         description: Driver registered
+ *         description: Driver logged in/registered
  */
 
-/**
- * @swagger
- * /api/auth/driver/login:
- *   post:
- *     summary: Login as driver
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Driver logged in
- */
+// Send OTP to mobile number
+router.post('/send-otp', [
+  body('phone').isMobilePhone().withMessage('Invalid phone number'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  
+  const { phone } = req.body;
+  
+  try {
+    // Generate fake OTP
+    const otp = generateFakeOTP();
+    
+    // Store OTP with expiry (5 minutes)
+    otpStore.set(phone, {
+      otp,
+      expires: Date.now() + 5 * 60 * 1000 // 5 minutes
+    });
+    
+    console.log(`Fake OTP sent to ${phone}: ${otp}`);
+    
+    res.json({ 
+      message: 'OTP sent successfully',
+      otp: otp // Only for testing - remove in production
+    });
+  } catch (err) {
+    console.error('Error sending OTP:', err);
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
 
-/**
- * @swagger
- * /api/auth/driver/request-reset:
- *   post:
- *     summary: Request password reset for driver
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password reset email sent
- */
+// Verify OTP and login/register driver
+router.post('/verify-otp', [
+  body('phone').isMobilePhone().withMessage('Invalid phone number'),
+  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
+  body('name').optional().isLength({ min: 2, max: 100 }).trim().escape(),
+  body('car_info').optional().isString().isLength({ max: 100 }).trim().escape(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  
+  const { phone, otp, name, car_info } = req.body;
+  
+  try {
+    // Check if OTP exists and is valid
+    const storedOTP = otpStore.get(phone);
+    if (!storedOTP || storedOTP.otp !== otp || Date.now() > storedOTP.expires) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+    
+    // Clear the OTP after successful verification
+    otpStore.delete(phone);
+    
+    // Check if driver exists
+    let driver = await pool.query('SELECT * FROM drivers WHERE phone = $1', [phone]);
+    
+    if (driver.rows.length === 0) {
+      // New driver - register
+      if (!name || !car_info) {
+        return res.status(400).json({ error: 'Name and car information required for new drivers' });
+      }
+      
+      const result = await pool.query(
+        'INSERT INTO drivers (name, phone, car_info, verified) VALUES ($1, $2, $3, $4) RETURNING id, name, phone, car_info',
+        [name, phone, car_info, true]
+      );
+      
+      driver = result.rows[0];
+      console.log(`New driver registered: ${name} (${phone})`);
+    } else {
+      // Existing driver - login
+      driver = driver.rows[0];
+      console.log(`Driver logged in: ${driver.name} (${phone})`);
+    }
+    
+    // Generate JWT token
+    const token = jwt.sign({ 
+      driverId: driver.id, 
+      role: 'driver',
+      phone: driver.phone 
+    }, JWT_SECRET, { expiresIn: '1d' });
+    
+    res.json({ 
+      token,
+      driver: {
+        id: driver.id,
+        name: driver.name,
+        phone: driver.phone,
+        car_info: driver.car_info
+      }
+    });
+    
+  } catch (err) {
+    console.error('Error verifying OTP:', err);
+    res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+});
 
+// Commented out email-based authentication routes
+/*
 // Register driver
 router.post('/register', [
   body('name').isLength({ min: 2, max: 100 }).trim().escape(),
@@ -127,36 +211,6 @@ router.post('/register', [
   }
 });
 
-// Email verification route
-router.get('/verify', async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.status(400).json({ error: 'No token provided' });
-  const result = await pool.query('UPDATE drivers SET verified = TRUE, verification_token = NULL, verification_token_expires = NULL WHERE verification_token = $1 AND verification_token_expires > NOW() RETURNING id, email, verified', [token]);
-  if (result.rowCount === 0) return res.status(400).json({ error: 'Invalid or expired token' });
-  res.json({ message: 'Driver email verified successfully', driver: result.rows[0] });
-});
-
-// Resend verification email
-router.post('/resend-verification', async (req, res) => {
-  const { email } = req.body;
-  const driverRes = await pool.query('SELECT * FROM drivers WHERE email = $1', [email]);
-  const driver = driverRes.rows[0];
-  if (!driver) return res.status(404).json({ error: 'Driver not found' });
-  if (driver.verified) return res.status(400).json({ error: 'Driver already verified' });
-  // Generate new token and expiry
-  const verification_token = crypto.randomBytes(32).toString('hex');
-  const verification_token_expires = new Date(Date.now() + 60 * 60 * 1000);
-  await pool.query('UPDATE drivers SET verification_token = $1, verification_token_expires = $2 WHERE id = $3', [verification_token, verification_token_expires, driver.id]);
-  const verifyUrl = `http://localhost:3000/api/auth/driver/verify?token=${verification_token}`;
-  await sendEmail({
-    to: email,
-    subject: 'Verify your RideShare Driver account',
-    text: `Please verify your driver account: ${verifyUrl}`,
-    html: `<div style='font-family:sans-serif'><h1>Verify your RideShare driver account</h1><p>Please <a href="${verifyUrl}">verify your account</a>.<br>This link will expire in 1 hour.</p></div>`
-  });
-  res.json({ message: 'Verification email resent' });
-});
-
 // Login driver
 router.post('/login', [
   body('email').isEmail(),
@@ -174,37 +228,6 @@ router.post('/login', [
   const token = jwt.sign({ driverId: driver.id, role: 'driver' }, JWT_SECRET, { expiresIn: '1d' });
   res.json({ token });
 });
-
-// Request password reset
-router.post('/request-reset', async (req, res) => {
-  const { email } = req.body;
-  const driverRes = await pool.query('SELECT * FROM drivers WHERE email = $1', [email]);
-  const driver = driverRes.rows[0];
-  if (!driver) return res.status(404).json({ error: 'Driver not found' });
-  const reset_token = crypto.randomBytes(32).toString('hex');
-  const reset_token_expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-  await pool.query('UPDATE drivers SET reset_token = $1, reset_token_expires = $2 WHERE id = $3', [reset_token, reset_token_expires, driver.id]);
-  const resetUrl = `http://localhost:3000/api/auth/driver/reset-password?token=${reset_token}`;
-  await sendEmail({
-    to: email,
-    subject: 'Reset your RideShare Driver password',
-    text: `Reset your password: ${resetUrl}`,
-    html: `<div style='font-family:sans-serif'><h1>Reset your RideShare Driver password</h1><p><a href="${resetUrl}">Reset Password</a> (expires in 1 hour)</p></div>`
-  });
-  res.json({ message: 'Password reset email sent' });
-});
-
-// Reset password
-router.post('/reset-password', async (req, res) => {
-  const { token, password } = req.body;
-  if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
-  if (password.length < 8) return res.status(400).json({ error: 'Password too short' });
-  const driverRes = await pool.query('SELECT * FROM drivers WHERE reset_token = $1 AND reset_token_expires > NOW()', [token]);
-  const driver = driverRes.rows[0];
-  if (!driver) return res.status(400).json({ error: 'Invalid or expired token' });
-  const hash = await bcrypt.hash(password, 10);
-  await pool.query('UPDATE drivers SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2', [hash, driver.id]);
-  res.json({ message: 'Password reset successful' });
-});
+*/
 
 module.exports = router;

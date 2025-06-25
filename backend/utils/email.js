@@ -11,27 +11,34 @@ i18n.configure({
   objectNotation: true
 });
 
-// For demo/testing, use Ethereal. Replace with your SMTP for production.
+// Gmail SMTP configuration
 async function sendEmail({ to, subject, text, html, locale = 'en' }) {
   i18n.setLocale(locale);
-  let testAccount = await nodemailer.createTestAccount();
-  let transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
+  
+  // Create Gmail transporter
+  let transporter = nodemailer.createTransporter({
+    service: 'gmail',
     auth: {
-      user: testAccount.user,
-      pass: testAccount.pass
+      user: process.env.EMAIL_USER || 'your-email@gmail.com', // Your Gmail address
+      pass: process.env.EMAIL_PASS || 'your-app-password'     // Your Gmail app password
     }
   });
-  let info = await transporter.sendMail({
-    from: 'no-reply@rideshare.com',
-    to,
-    subject: i18n.__(subject),
-    text: i18n.__(text),
-    html: i18n.__(html)
-  });
-  console.log('Email sent:', info.messageId);
-  console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
+
+  try {
+    let info = await transporter.sendMail({
+      from: process.env.EMAIL_USER || 'your-email@gmail.com',
+      to,
+      subject: i18n.__(subject),
+      text: i18n.__(text),
+      html: i18n.__(html)
+    });
+    
+    console.log('Email sent successfully:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    throw error;
+  }
 }
 
 module.exports = sendEmail;
