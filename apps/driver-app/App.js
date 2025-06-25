@@ -18,6 +18,10 @@ import DriverHome from './DriverHome';
 import RideManagement from './components/RideManagement';
 import EarningsFinance from './components/EarningsFinance';
 import SafetyCommunication from './components/SafetyCommunication';
+import NotificationService from './utils/notifications';
+import VoiceCommands from './components/VoiceCommands';
+import AdvancedSafety from './components/AdvancedSafety';
+import DriverAnalytics from './components/DriverAnalytics';
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
@@ -100,7 +104,6 @@ function LoginScreen({ navigation }) {
 function MainApp() {
   const [loggedIn, setLoggedIn] = useState(true);
 
-  // Initialize global user if not exists
   useEffect(() => {
     if (!global.user) {
       global.user = {
@@ -112,6 +115,16 @@ function MainApp() {
       };
       global.token = 'mock-jwt-token-123';
     }
+    // Initialize push notifications
+    NotificationService.init().then(() => {
+      const token = NotificationService.getPushToken();
+      if (global.user && token) {
+        NotificationService.registerPushToken(global.user.id, token);
+      }
+    });
+    return () => {
+      NotificationService.cleanup();
+    };
   }, []);
 
   const handleLogout = () => {
@@ -251,6 +264,36 @@ function MainApp() {
             title: 'Theme',
             drawerIcon: ({ color, size }) => (
               <Ionicons name="color-palette" size={size} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="VoiceCommands" 
+          component={(props) => <VoiceCommands {...props} user={global.user} token={global.token} />}
+          options={{
+            title: 'Voice Commands',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="mic" size={size} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="AdvancedSafety" 
+          component={(props) => <AdvancedSafety {...props} user={global.user} token={global.token} />}
+          options={{
+            title: 'Advanced Safety',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="shield-checkmark" size={size} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="DriverAnalytics" 
+          component={(props) => <DriverAnalytics {...props} user={global.user} token={global.token} />}
+          options={{
+            title: 'Analytics',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="analytics" size={size} color={color} />
             ),
           }}
         />

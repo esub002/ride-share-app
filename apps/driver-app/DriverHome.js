@@ -11,10 +11,11 @@ import {
   Dimensions,
   Switch,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { API_BASE_URL } from "./utils/api";
+import socket from './utils/socket';
 
 const { width, height } = Dimensions.get("window");
 
@@ -57,6 +58,14 @@ export default function DriverHome({ token, user, onRideAccepted, navigation }) 
           (location) => {
             setLocation(location.coords);
             updateDriverLocation(location.coords);
+            // Emit location update via socket
+            if (user && user.id) {
+              socket.emit('driver:location', {
+                driverId: user.id,
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              });
+            }
           }
         );
       } catch (error) {
@@ -265,6 +274,7 @@ export default function DriverHome({ token, user, onRideAccepted, navigation }) 
           loadingIndicatorColor="#2196F3"
           loadingBackgroundColor="#ffffff"
         >
+          {/* Driver Location Marker */}
           {location && (
             <Marker
               coordinate={{
@@ -273,8 +283,91 @@ export default function DriverHome({ token, user, onRideAccepted, navigation }) 
               }}
               title="Your Location"
               description="You are here"
-            />
+              pinColor="#2196F3"
+            >
+              <View style={styles.driverMarker}>
+                <Ionicons name="car" size={24} color="#2196F3" />
+              </View>
+            </Marker>
           )}
+
+          {/* Current Ride Markers and Route */}
+          {currentRide && currentRide.pickup && currentRide.destination && (
+            <>
+              {/* Pickup Marker */}
+              <Marker
+                coordinate={{
+                  latitude: currentRide.pickup.latitude,
+                  longitude: currentRide.pickup.longitude,
+                }}
+                title="Pickup Location"
+                description={currentRide.pickup.address}
+                pinColor="#FF9800"
+              >
+                <View style={styles.pickupMarker}>
+                  <Ionicons name="location" size={20} color="#FF9800" />
+                </View>
+              </Marker>
+
+              {/* Destination Marker */}
+              <Marker
+                coordinate={{
+                  latitude: currentRide.destination.latitude,
+                  longitude: currentRide.destination.longitude,
+                }}
+                title="Destination"
+                description={currentRide.destination.address}
+                pinColor="#4CAF50"
+              >
+                <View style={styles.destinationMarker}>
+                  <Ionicons name="flag" size={20} color="#4CAF50" />
+                </View>
+              </Marker>
+
+              {/* Route Polyline */}
+              {location && (
+                <Polyline
+                  coordinates={[
+                    { latitude: location.latitude, longitude: location.longitude },
+                    { latitude: currentRide.pickup.latitude, longitude: currentRide.pickup.longitude },
+                    { latitude: currentRide.destination.latitude, longitude: currentRide.destination.longitude },
+                  ]}
+                  strokeColor="#2196F3"
+                  strokeWidth={3}
+                  lineDashPattern={[5, 5]}
+                />
+              )}
+            </>
+          )}
+
+          {/* Ride Request Markers */}
+          {available && rideRequests.map((ride) => (
+            <Marker
+              key={ride.id}
+              coordinate={{
+                latitude: ride.pickup?.latitude || 37.78825,
+                longitude: ride.pickup?.longitude || -122.4324,
+              }}
+              title="Ride Request"
+              description={`${ride.origin} → ${ride.destination}`}
+              pinColor="#FF5722"
+              onPress={() => {
+                // Show ride request details
+                Alert.alert(
+                  "Ride Request",
+                  `From: ${ride.origin}\nTo: ${ride.destination}\nFare: $${ride.fare || 'TBD'}`,
+                  [
+                    { text: "Reject", style: "cancel" },
+                    { text: "Accept", onPress: () => acceptRide(ride.id) }
+                  ]
+                );
+              }}
+            >
+              <View style={styles.requestMarker}>
+                <Ionicons name="car-outline" size={20} color="#FF5722" />
+              </View>
+            </Marker>
+          ))}
         </MapView>
       )}
 
@@ -616,5 +709,37 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginTop: 20,
+  },
+  driverMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickupMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  destinationMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  requestMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

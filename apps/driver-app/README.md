@@ -1,142 +1,310 @@
-# Welcome to your Expo app 👋
+# 🚗 Driver App - Ride Share Platform
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A comprehensive React Native driver application built with Expo, featuring advanced ride management, earnings tracking, safety features, and real-time communication.
 
-## Get started
+## 📱 Features Overview
 
-1. Install dependencies
+### 🏠 **Home Dashboard**
+- **Real-time availability toggle** - Go online/offline instantly
+- **Live map integration** with current location tracking
+- **Earnings overview** - Today's earnings at a glance
+- **Quick ride acceptance** - One-tap ride request handling
+- **Current ride management** - Active ride status and completion
 
+### 💰 **Earnings & Finance**
+- **Multi-period earnings reports** - Daily, weekly, monthly views
+- **Payment method management** - Bank accounts and cards
+- **Transaction history** - Detailed ride and tip records
+- **Tax document access** - Download tax documents
+- **Tips management** - Track and view tip history
+- **Earnings sharing** - Share reports with others
+
+### 🛡️ **Safety & Communication**
+- **Emergency SOS button** - Instant emergency alert system
+- **Trip status sharing** - Share location with emergency contacts
+- **Voice commands** - Hands-free operation support
+- **Driver verification** - Document upload and status tracking
+- **Emergency contacts** - Manage trusted contacts
+- **Safety settings** - Auto-share location and preferences
+
+### 🚘 **Ride Management**
+- **Real-time ride requests** - Live incoming ride notifications
+- **One-tap acceptance** - Quick ride acceptance/rejection
+- **Navigation integration** - Built-in navigation support
+- **Ride status tracking** - Complete ride lifecycle management
+- **Customer communication** - In-app messaging with riders
+
+### 👤 **Profile & Settings**
+- **Driver profile** - Personal and vehicle information
+- **Trip history** - Complete ride history with details
+- **Wallet management** - Payment and withdrawal tracking
+- **Theme customization** - Light/dark mode support
+- **App settings** - Preferences and configurations
+
+## 🛠️ Technical Stack
+
+### **Frontend**
+- **React Native** - Cross-platform mobile development
+- **Expo** - Development platform and tools
+- **React Navigation** - Navigation and routing
+- **Expo Vector Icons** - Icon library
+- **React Native Maps** - Map integration
+
+### **Backend Integration**
+- **RESTful APIs** - Complete backend integration
+- **JWT Authentication** - Secure token-based auth
+- **Real-time updates** - WebSocket support
+- **Push notifications** - Real-time alerts
+
+### **State Management**
+- **React Hooks** - Modern state management
+- **Context API** - Global state management
+- **Async Storage** - Local data persistence
+
+## 🚀 Getting Started
+
+### **Prerequisites**
+- Node.js (v16 or higher)
+- npm or yarn
+- Expo CLI
+- Android Studio (for Android development)
+- Xcode (for iOS development, macOS only)
+
+### **Installation**
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/esub002/ride-share-app.git
+   cd ride-share-app/apps/driver-app
+   ```
+
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Start the development server**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Run on device**
+   - **Android**: Press `a` in the terminal or scan QR code with Expo Go
+   - **iOS**: Press `i` in the terminal or scan QR code with Expo Go
+   - **Web**: Press `w` in the terminal
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### **Environment Setup**
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+1. **Backend Server**
+   ```bash
+   cd ../backend
+   npm install
+   npm start
+   ```
 
-## Get a fresh project
+2. **Database Setup**
+   - Ensure PostgreSQL is running
+   - Run database migrations
+   - Configure environment variables
 
-When you're ready, run:
+## 📱 App Structure
 
-```bash
-npm run reset-project
+```
+apps/driver-app/
+├── App.js                 # Main app entry point
+├── DriverHome.js          # Home dashboard
+├── DrawerContent.js       # Navigation drawer
+├── components/            # Reusable components
+│   ├── EarningsFinance.js     # Earnings & finance features
+│   ├── SafetyCommunication.js # Safety & communication
+│   ├── RideManagement.js      # Ride management
+│   ├── Profile.js             # Driver profile
+│   ├── Wallet.js              # Wallet management
+│   └── ...                    # Other components
+├── screens/               # Screen components
+├── utils/                 # Utility functions
+├── auth/                  # Authentication
+├── assets/                # Images and fonts
+└── constants/             # App constants
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🔐 Authentication
 
-## Learn more
+### **Current Implementation**
+- **Mobile OTP Authentication** - Phone number + OTP verification
+- **Test OTP**: `123456` (for development)
+- **Auto-registration** - New users automatically registered
+- **Session management** - Persistent login sessions
 
-To learn more about developing your project with Expo, look at the following resources:
+### **Security Features**
+- JWT token authentication
+- Secure API communication
+- Input validation and sanitization
+- Error handling and logging
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🗺️ Navigation Structure
 
-## Join the community
+```
+Home Dashboard
+├── Ride Management
+├── Earnings & Finance
+├── Safety & Communication
+├── Profile
+├── Wallet
+├── Trip History
+├── Messages
+├── Safety Features
+├── Settings
+└── Theme
+```
 
-Join our community of developers creating universal apps.
+## 📊 Features in Detail
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### **Earnings & Finance**
+- **Period Selector**: Toggle between Today, This Week, This Month
+- **Earnings Overview**: Large display with period-specific earnings
+- **Payment Methods**: Add/edit bank accounts and cards
+- **Transaction History**: Detailed list with icons and colors
+- **Tax Documents**: Download tax documents
+- **Tips Management**: Dedicated tips history and tracking
 
-# Running Expo App on a USB-Connected Android Device
+### **Safety & Communication**
+- **Emergency SOS**: Large red button with confirmation dialog
+- **Safety Settings**: Toggle auto-share location, voice commands
+- **Emergency Contacts**: Add, edit, and call emergency contacts
+- **Driver Verification**: Upload and track verification documents
+- **Trip Sharing**: Share current trip status with contacts
 
-To run your Expo (React Native) app on a real Android device via USB:
+### **Ride Management**
+- **Real-time Requests**: Live incoming ride notifications
+- **Quick Actions**: One-tap accept/reject buttons
+- **Ride Status**: Complete ride lifecycle tracking
+- **Navigation**: Built-in navigation integration
+- **Customer Chat**: In-app messaging system
+
+## 🎨 UI/UX Features
+
+### **Design System**
+- **Material Design** - Modern, clean interface
+- **Responsive Layout** - Works on all screen sizes
+- **Dark/Light Themes** - Theme customization
+- **Loading States** - Proper loading indicators
+- **Error Handling** - User-friendly error messages
+
+### **Interactive Elements**
+- **Pull-to-refresh** - Manual data refresh
+- **Swipe gestures** - Intuitive navigation
+- **Haptic feedback** - Tactile response
+- **Smooth animations** - Polished user experience
+
+## 🔧 Development Features
+
+### **Error Handling**
+- **Network Error Recovery** - Graceful offline handling
+- **API Error Management** - Comprehensive error states
+- **User Input Validation** - Real-time validation
+- **Loading States** - Proper async operation feedback
+
+### **Performance**
+- **Optimized Rendering** - Efficient component updates
+- **Image Optimization** - Compressed assets
+- **Memory Management** - Proper cleanup and disposal
+- **Battery Optimization** - Efficient background operations
+
+## 🧪 Testing
+
+### **Manual Testing**
+1. **Authentication Flow**
+   - Login with mobile number
+   - OTP verification
+   - Registration for new users
+
+2. **Core Features**
+   - Toggle availability
+   - Accept/reject rides
+   - Complete rides
+   - View earnings
+
+3. **Safety Features**
+   - Emergency SOS
+   - Add emergency contacts
+   - Share trip status
+
+### **Test Data**
+- **Test OTP**: `123456`
+- **Mock User**: John Driver
+- **Sample Rides**: Pre-populated ride data
+- **Mock Earnings**: Sample financial data
+
+## 🚀 Deployment
+
+### **Development**
+```bash
+npx expo start
+```
+
+### **Production Build**
+```bash
+npx expo build:android
+npx expo build:ios
+```
+
+### **Publishing**
+```bash
+npx expo publish
+```
+
+## 📝 API Integration
+
+### **Endpoints Used**
+- `POST /api/drivers/login` - Driver authentication
+- `GET /api/drivers/{id}/earnings` - Earnings data
+- `GET /api/drivers/{id}/transactions` - Transaction history
+- `POST /api/drivers/{id}/payment-methods` - Payment management
+- `GET /api/rides?status=requested` - Ride requests
+- `PATCH /api/rides/{id}/status` - Update ride status
+
+### **Real-time Features**
+- WebSocket connection for live updates
+- Push notifications for ride requests
+- Real-time location tracking
+- Live chat messaging
+
+## 🔮 Future Enhancements
+
+### **Planned Features**
+- **Advanced Analytics** - Performance insights and trends
+- **Route Optimization** - AI-powered route suggestions
+- **Voice Commands** - Full hands-free operation
+- **Offline Mode** - Complete offline functionality
+- **Multi-language Support** - Internationalization
+- **Advanced Safety** - AI-powered safety monitoring
+
+### **Technical Improvements**
+- **Performance Optimization** - Faster load times
+- **Battery Efficiency** - Reduced power consumption
+- **Offline Sync** - Data synchronization
+- **Push Notifications** - Enhanced notification system
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the GitHub repository
+- Check the documentation
+- Review the troubleshooting guide
 
 ---
 
-## 1. Enable Developer Options and USB Debugging
-
-- On your Android device:
-  1. Go to **Settings > About phone**.
-  2. Tap **Build number** 7 times to enable Developer Options.
-  3. Go to **Settings > Developer options**.
-  4. Enable **USB debugging**.
-
----
-
-## 2. Connect Your Device
-
-- Connect your Android device to your computer via USB cable.
-- Allow USB debugging permission if prompted on your device.
-
----
-
-## 3. Install Expo Go App
-
-- Install [Expo Go](https://play.google.com/store/apps/details?id=host.exp.exponent) from the Play Store on your device.
-
----
-
-## 4. Start the Expo Project
-
-- In your `mobile/` directory, run:
-  ```
-  npx expo start
-  ```
-- This will open the Expo DevTools in your browser.
-
----
-
-## 5. Run on Device
-
-- In Expo DevTools, click **"Run on Android device/emulator"**.
-- Or, in your terminal, run:
-  ```
-  npx expo run:android
-  ```
-- Your device should appear as a connected device. Select it if prompted.
-
----
-
-## 6. Troubleshooting
-
-- If your device does not show up:
-  - Make sure USB debugging is enabled.
-  - Try running `adb devices` in your terminal to see if your device is listed.
-    - If not, install [Android Platform Tools](https://developer.android.com/studio/releases/platform-tools) and add to your PATH.
-  - Accept any permission dialogs on your phone.
-  - Try a different USB cable or port.
-
----
-
-## 7. Alternative: Scan QR Code
-
-- With Expo Go open on your device, scan the QR code shown in Expo DevTools or terminal.
-- Your app will load over WiFi (device and computer must be on the same network).
-
----
-
-**Now your app will run on your real Android device via USB!**
-
-# Driver App
-
-## Authentication Update
-
-- **Login/Register is now via mobile number and OTP only.**
-- Enter your mobile number and tap 'Send OTP'.
-- Use the fake OTP: **123456** (always works for testing).
-- If it's a new number, you will be prompted to enter your name and car info to complete registration.
-- No email or password is required. Email-based login and verification are disabled.
-
-## How to Test
-1. Start the backend and frontend as usual.
-2. On the login screen, enter a mobile number (any valid format).
-3. Tap 'Send OTP'.
-4. Enter **123456** as the OTP.
-5. If prompted, fill in your name and car info.
-6. You will be logged in as a driver.
-
----
-
-For developers: To switch back to email/password, revert the changes in `LoginScreen.js` and `backend/routes/authDriver.js`.
+**Built with ❤️ using React Native and Expo**
