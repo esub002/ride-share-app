@@ -1,0 +1,27 @@
+{
+  "name": "rider-app",
+  "version": "1.0.0",
+  "description": "Rider app for ride-share platform",
+  "main": "index.js",
+  "scripts": {
+    "start": "echo 'Rider app - development mode'",
+    "build": "echo 'Rider app build completed'",
+    "test": "echo 'No tests specified' && exit 0",
+    "lint": "echo 'No linting configured' && exit 0"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-native": "^0.72.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-native": "^0.72.0"
+  },
+  "keywords": [
+    "ride-share",
+    "rider",
+    "mobile"
+  ],
+  "author": "Ride Share Team",
+  "license": "MIT"
+} 

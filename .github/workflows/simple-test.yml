@@ -1,0 +1,57 @@
+# Simple test workflow to verify basic functionality
+name: Simple Test
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./backend
+      - name: Run basic tests
+        run: npm test
+        working-directory: ./backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./frontend
+      - name: Run basic tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        working-directory: ./frontend
+
+  test-driver-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./apps/driver-app
+      - name: Run basic tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        working-directory: ./apps/driver-app 
