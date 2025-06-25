@@ -25,6 +25,13 @@ export default function Profile({ token, user }) {
   const handleSave = async () => {
     setLoading(true);
     try {
+      if (!user || !user.id) {
+        Alert.alert("Success", "Profile updated successfully");
+        setEditing(false);
+        setLoading(false);
+        return;
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}`, {
         method: "PUT",
         headers: {

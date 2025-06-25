@@ -29,14 +29,30 @@ export default function VoiceCommands({
   const [voiceCommands, setVoiceCommands] = useState([]);
 
   useEffect(() => {
-    // Initialize voice recognition
-    Voice.onSpeechStart = onSpeechStart;
-    Voice.onSpeechEnd = onSpeechEnd;
-    Voice.onSpeechResults = onSpeechResults;
-    Voice.onSpeechError = onSpeechError;
+    // Initialize voice recognition with error handling
+    try {
+      if (Voice) {
+        Voice.onSpeechStart = onSpeechStart;
+        Voice.onSpeechEnd = onSpeechEnd;
+        Voice.onSpeechResults = onSpeechResults;
+        Voice.onSpeechError = onSpeechError;
+      }
+    } catch (error) {
+      console.error('Error initializing Voice library:', error);
+    }
 
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
+      try {
+        if (Voice) {
+          Voice.destroy().then(() => {
+            Voice.removeAllListeners();
+          }).catch(error => {
+            console.error('Error destroying Voice:', error);
+          });
+        }
+      } catch (error) {
+        console.error('Error cleaning up Voice:', error);
+      }
     };
   }, []);
 
@@ -63,16 +79,25 @@ export default function VoiceCommands({
 
   const startListening = async () => {
     try {
+      if (!Voice) {
+        console.error('Voice library not available');
+        Alert.alert('Voice Commands', 'Voice recognition is not available on this device');
+        return;
+      }
+      
       await Voice.start('en-US');
       speakFeedback('Listening for commands');
     } catch (error) {
       console.error('Error starting voice recognition:', error);
+      Alert.alert('Voice Commands', 'Unable to start voice recognition. Please try again.');
     }
   };
 
   const stopListening = async () => {
     try {
-      await Voice.stop();
+      if (Voice) {
+        await Voice.stop();
+      }
     } catch (error) {
       console.error('Error stopping voice recognition:', error);
     }

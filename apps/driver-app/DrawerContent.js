@@ -85,6 +85,21 @@ export default function DrawerContent(props) {
       icon: "color-palette",
       screen: "Theme",
     },
+    {
+      name: "Voice Commands",
+      icon: "mic",
+      screen: "VoiceCommands",
+    },
+    {
+      name: "Advanced Safety",
+      icon: "shield-checkmark",
+      screen: "AdvancedSafety",
+    },
+    {
+      name: "Analytics",
+      icon: "analytics",
+      screen: "DriverAnalytics",
+    },
   ];
 
   return (

@@ -40,7 +40,7 @@ class NotificationService {
       // Get push token with fallback
       if (Device.isDevice) {
         try {
-          const projectId = Constants.expoConfig?.extra?.eas?.projectId || 'default-project-id';
+          const projectId = Constants.expoConfig?.extra?.eas?.projectId || 'your-project-id-here';
           const token = await Notifications.getExpoPushTokenAsync({
             projectId: projectId,
           });
@@ -288,10 +288,10 @@ class NotificationService {
   cleanup() {
     try {
       if (this.notificationListener) {
-        Notifications.removeNotificationSubscription(this.notificationListener);
+        this.notificationListener.remove();
       }
       if (this.responseListener) {
-        Notifications.removeNotificationSubscription(this.responseListener);
+        this.responseListener.remove();
       }
     } catch (error) {
       console.error('Error cleaning up notifications:', error);

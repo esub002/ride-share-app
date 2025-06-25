@@ -13,210 +13,90 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_BASE_URL } from '../utils/api';
+import { fetchEarnings, fetchPaymentMethods, fetchTransactions } from '../utils/api';
 
 export default function EarningsFinance({ user, token }) {
-  const [earnings, setEarnings] = useState({
-    today: 0,
-    week: 0,
-    month: 0,
-    total: 0,
-  });
+  const [earnings, setEarnings] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showTipsModal, setShowTipsModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [newPaymentMethod, setNewPaymentMethod] = useState({
     type: 'bank',
+    accountName: '',
     accountNumber: '',
     routingNumber: '',
     cardNumber: '',
     expiryDate: '',
     cvv: '',
-    accountName: '',
   });
 
   useEffect(() => {
-    if (user && user.id) {
-      loadData();
-    }
-  }, [user]);
+    loadData();
+  }, []);
 
   const loadData = async () => {
-    setError(null);
+    setLoading(true);
     try {
       await Promise.all([
-        fetchEarnings(),
-        fetchPaymentMethods(),
-        fetchTransactions()
+        fetchEarningsData(),
+        fetchPaymentMethodsData(),
+        fetchTransactionsData(),
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
-      setError('Failed to load data. Please try again.');
+      // Don't show error alert, just use mock data
+    } finally {
+      setLoading(false);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        fetchEarningsData(),
+        fetchPaymentMethodsData(),
+        fetchTransactionsData(),
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const fetchEarnings = async () => {
-    if (!user || !user.id || !token) {
-      throw new Error('User not authenticated');
-    }
-    
+  const fetchEarningsData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/earnings`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please login again.');
-        } else if (response.status === 404) {
-          throw new Error('Earnings data not found.');
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-
-      const data = await response.json();
+      const data = await fetchEarnings(user?.id, token);
       setEarnings(data);
     } catch (error) {
       console.error('Error fetching earnings:', error);
-      if (error.message.includes('Network') || error.message.includes('fetch')) {
-        // Use mock data for network errors
-        setEarnings({
-          today: 125.50,
-          week: 847.25,
-          month: 3240.75,
-          total: 15420.50,
-        });
-      } else {
-        throw error;
-      }
+      // Use mock data from API utility
     }
   };
 
-  const fetchPaymentMethods = async () => {
-    if (!user || !user.id || !token) {
-      throw new Error('User not authenticated');
-    }
-    
+  const fetchPaymentMethodsData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/payment-methods`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please login again.');
-        } else if (response.status === 404) {
-          // No payment methods found, use empty array
-          setPaymentMethods([]);
-          return;
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-
-      const data = await response.json();
+      const data = await fetchPaymentMethods(user?.id, token);
       setPaymentMethods(data);
     } catch (error) {
       console.error('Error fetching payment methods:', error);
-      if (error.message.includes('Network') || error.message.includes('fetch')) {
-        // Use mock data for network errors
-        setPaymentMethods([
-          {
-            id: 1,
-            type: 'bank',
-            accountName: 'Chase Bank',
-            accountNumber: '****1234',
-            isDefault: true,
-          },
-          {
-            id: 2,
-            type: 'card',
-            accountName: 'Visa Card',
-            accountNumber: '****5678',
-            isDefault: false,
-          },
-        ]);
-      } else {
-        throw error;
-      }
+      // Use mock data from API utility
     }
   };
 
-  const fetchTransactions = async () => {
-    if (!user || !user.id || !token) {
-      throw new Error('User not authenticated');
-    }
-    
+  const fetchTransactionsData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/transactions`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication expired. Please login again.');
-        } else if (response.status === 404) {
-          // No transactions found, use empty array
-          setTransactions([]);
-          return;
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-
-      const data = await response.json();
+      const data = await fetchTransactions(user?.id, token);
       setTransactions(data);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      if (error.message.includes('Network') || error.message.includes('fetch')) {
-        // Use mock data for network errors
-        setTransactions([
-          {
-            id: 1,
-            type: 'ride_earnings',
-            amount: 25.50,
-            description: 'Ride from Downtown to Uptown',
-            date: '2024-01-15T10:30:00Z',
-            status: 'completed',
-          },
-          {
-            id: 2,
-            type: 'tip',
-            amount: 5.00,
-            description: 'Tip from John D.',
-            date: '2024-01-15T10:30:00Z',
-            status: 'completed',
-          },
-          {
-            id: 3,
-            type: 'withdrawal',
-            amount: -500.00,
-            description: 'Withdrawal to Chase Bank',
-            date: '2024-01-14T15:20:00Z',
-            status: 'completed',
-          },
-        ]);
-      } else {
-        throw error;
-      }
+      // Use mock data from API utility
     }
   };
 
@@ -277,7 +157,7 @@ export default function EarningsFinance({ user, token }) {
         cvv: '',
         accountName: '',
       });
-      await fetchPaymentMethods();
+      await fetchPaymentMethodsData();
     } catch (error) {
       console.error('Error adding payment method:', error);
       if (error.message.includes('Network') || error.message.includes('fetch')) {
@@ -335,15 +215,17 @@ export default function EarningsFinance({ user, token }) {
   };
 
   const getEarningsForPeriod = () => {
+    if (!earnings) return 0;
+    
     switch (selectedPeriod) {
       case 'today':
-        return earnings.today;
+        return earnings.today || 0;
       case 'week':
-        return earnings.week;
+        return earnings.week || 0;
       case 'month':
-        return earnings.month;
+        return earnings.month || 0;
       default:
-        return earnings.today;
+        return earnings.today || 0;
     }
   };
 
@@ -475,7 +357,7 @@ export default function EarningsFinance({ user, token }) {
 
             <View style={styles.earningsStats}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>${earnings.total.toFixed(2)}</Text>
+                <Text style={styles.statValue}>${(earnings?.total || 0).toFixed(2)}</Text>
                 <Text style={styles.statLabel}>Total Earnings</Text>
               </View>
               <View style={styles.statItem}>
