@@ -12,7 +12,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { API_BASE_URL } from "../utils/api";
+import apiService from '../utils/api';
 
 export default function Wallet({ token, user }) {
   const [walletData, setWalletData] = useState({
@@ -79,7 +79,7 @@ export default function Wallet({ token, user }) {
     if (!user || !user.id) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/wallet`, {
+      const response = await fetch(`${apiService.API_BASE_URL}/api/drivers/${user.id}/wallet`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -111,36 +111,8 @@ export default function Wallet({ token, user }) {
     if (!user || !user.id) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/transactions`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTransactions(data);
-      } else {
-        // Use mock data on error
-        setTransactions([
-          {
-            id: 1,
-            type: 'ride_earnings',
-            amount: 25.50,
-            description: 'Ride from Downtown to Uptown',
-            created_at: '2024-01-15T10:30:00Z',
-            status: 'completed',
-          },
-          {
-            id: 2,
-            type: 'withdrawal',
-            amount: 500.00,
-            description: 'Withdrawal to Chase Bank',
-            created_at: '2024-01-14T15:20:00Z',
-            status: 'completed',
-          },
-        ]);
-      }
+      const data = apiService.MOCK_DATA.transactions;
+      setTransactions(data);
     } catch (error) {
       console.error("Error fetching transactions:", error);
       // Use mock data on error
@@ -169,30 +141,10 @@ export default function Wallet({ token, user }) {
     if (!user || !user.id) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/payment-methods`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPaymentMethods(data);
-        if (data.length > 0) {
-          setSelectedPaymentMethod(data[0]);
-        }
-      } else {
-        // Use mock data on error
-        const mockPaymentMethods = [
-          {
-            id: 1,
-            type: 'bank',
-            accountName: 'Chase Bank',
-            accountNumber: '****1234',
-          },
-        ];
-        setPaymentMethods(mockPaymentMethods);
-        setSelectedPaymentMethod(mockPaymentMethods[0]);
+      const data = apiService.MOCK_DATA.paymentMethods;
+      setPaymentMethods(data);
+      if (data.length > 0) {
+        setSelectedPaymentMethod(data[0]);
       }
     } catch (error) {
       console.error("Error fetching payment methods:", error);
@@ -249,7 +201,7 @@ export default function Wallet({ token, user }) {
         return;
       }
       
-      const response = await fetch(`${API_BASE_URL}/api/drivers/${user.id}/withdraw`, {
+      const response = await fetch(`${apiService.API_BASE_URL}/api/drivers/${user.id}/withdraw`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,0 +1,276 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  POSTGRES_VERSION: '14'
+
+jobs:
+  # ===== BACKEND TESTS =====
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:${{ env.POSTGRES_VERSION }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ride_share_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Setup environment variables
+      working-directory: ./backend
+      run: |
+        echo "NODE_ENV=test" >> .env
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ride_share_test" >> .env
+        echo "JWT_SECRET=test-secret-key" >> .env
+
+    - name: Run database migrations
+      working-directory: ./backend
+      run: |
+        npm install -g pg
+        psql -h localhost -U postgres -d ride_share_test -f schema.sql
+        psql -h localhost -U postgres -d ride_share_test -f safety-schema.sql
+
+    - name: Run backend tests
+      working-directory: ./backend
+      run: npm test
+
+    - name: Upload backend test coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
+
+  # ===== FRONTEND TESTS =====
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: apps/driver-app/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./apps/driver-app
+      run: npm ci
+
+    - name: Run frontend tests
+      working-directory: ./apps/driver-app
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Upload frontend test coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./apps/driver-app/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # ===== SECURITY SCAN =====
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        cd backend && npm ci
+        cd ../apps/driver-app && npm ci
+
+    - name: Run security audit
+      run: |
+        cd backend && npm audit --audit-level moderate
+        cd ../apps/driver-app && npm audit --audit-level moderate
+
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+      continue-on-error: true
+
+  # ===== BUILD =====
+  build:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, security-scan]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        cd backend && npm ci
+        cd ../apps/driver-app && npm ci
+
+    - name: Build backend
+      working-directory: ./backend
+      run: npm run build
+      env:
+        NODE_ENV: production
+
+    - name: Build frontend
+      working-directory: ./apps/driver-app
+      run: |
+        npx expo install --fix
+        npx expo build:android --non-interactive
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          backend/dist/
+          apps/driver-app/android/
+
+  # ===== DEPLOY TO STAGING =====
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-artifacts
+
+    - name: Deploy to staging server
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+        # Example: rsync, docker push, etc.
+
+    - name: Run staging tests
+      run: |
+        echo "Running staging environment tests..."
+        # Add staging environment tests here
+
+  # ===== DEPLOY TO PRODUCTION =====
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-artifacts
+
+    - name: Deploy to production server
+      run: |
+        echo "Deploying to production environment..."
+        # Add your production deployment commands here
+        # Example: rsync, docker push, etc.
+
+    - name: Run production health checks
+      run: |
+        echo "Running production health checks..."
+        # Add production health check commands here
+
+    - name: Create database backup
+      run: |
+        echo "Creating production database backup..."
+        # Add database backup commands here
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "Production deployment completed successfully!"
+        # Add notification commands here (Slack, email, etc.)
+
+    - name: Notify deployment failure
+      if: failure()
+      run: |
+        echo "Production deployment failed!"
+        # Add failure notification commands here
+
+  # ===== PERFORMANCE TESTS =====
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Run performance tests
+      working-directory: ./backend
+      run: |
+        npm install -g artillery
+        artillery run tests/performance/load-test.yml
+
+    - name: Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report
+        path: ./backend/artillery-report.json 

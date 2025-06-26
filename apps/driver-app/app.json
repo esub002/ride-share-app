@@ -44,8 +44,21 @@
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
         "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_CONTACTS",
+        "WRITE_CONTACTS",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED",
+        "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "package": "com.esubvali.driverapp"
     },
     "web": {
       "bundler": "metro",
@@ -66,8 +79,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/sounds/notification.wav"]
+          "color": "#ffffff"
         }
       ],
       "expo-router"
@@ -77,8 +89,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
-      }
+        "projectId": "b14182db-f2ff-49f6-bb0f-b4c10475c542"
+      },
+      "router": {}
     }
   }
 }

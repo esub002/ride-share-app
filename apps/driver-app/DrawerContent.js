@@ -33,7 +33,7 @@ export default function DrawerContent(props) {
     {
       name: "Home",
       icon: "home",
-      screen: "DriverHome",
+      screen: "Home",
     },
     {
       name: "Ride Management",
@@ -42,12 +42,12 @@ export default function DrawerContent(props) {
     },
     {
       name: "Earnings & Finance",
-      icon: "cash",
+      icon: "wallet",
       screen: "EarningsFinance",
     },
     {
       name: "Safety & Communication",
-      icon: "shield-checkmark",
+      icon: "shield",
       screen: "SafetyCommunication",
     },
     {
@@ -66,13 +66,13 @@ export default function DrawerContent(props) {
       screen: "TripHistory",
     },
     {
-      name: "Messages",
+      name: "Customer Communication",
       icon: "chatbubbles",
       screen: "CustomerCommunication",
     },
     {
-      name: "Safety",
-      icon: "shield-checkmark",
+      name: "Safety Features",
+      icon: "shield",
       screen: "SafetyFeatures",
     },
     {
@@ -92,7 +92,7 @@ export default function DrawerContent(props) {
     },
     {
       name: "Advanced Safety",
-      icon: "shield-checkmark",
+      icon: "shield",
       screen: "AdvancedSafety",
     },
     {

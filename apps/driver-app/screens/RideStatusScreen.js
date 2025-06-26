@@ -2,9 +2,27 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, Image, ActivityIndicator, FlatList, TextInput, Button, Alert, TouchableOpacity } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
+import { Ionicons } from '@expo/vector-icons';
 import io from 'socket.io-client';
 
 const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY'; // Replace with your key
+
+// Custom marker components
+const RiderMarker = () => (
+  <View style={styles.markerContainer}>
+    <View style={[styles.markerIcon, { backgroundColor: '#4CAF50' }]}>
+      <Ionicons name="person" size={20} color="white" />
+    </View>
+  </View>
+);
+
+const DriverMarker = () => (
+  <View style={styles.markerContainer}>
+    <View style={[styles.markerIcon, { backgroundColor: '#2196F3' }]}>
+      <Ionicons name="car" size={20} color="white" />
+    </View>
+  </View>
+);
 
 function NotificationBanner({ message, onClose }) {
   if (!message) return null;
@@ -140,10 +158,10 @@ export default function RideStatusScreen({ ride, userId }) {
                 customMapStyle={customMapStyle}
               >
                 <Marker coordinate={riderLocation} title="Rider">
-                  <Image source={require('../assets/rider.png')} style={{width:32,height:32}} />
+                  <RiderMarker />
                 </Marker>
                 <Marker coordinate={driverLocation} title="Driver">
-                  <Image source={require('../assets/driver.png')} style={{width:32,height:32}} />
+                  <DriverMarker />
                 </Marker>
                 <MapViewDirections
                   origin={driverLocation}
@@ -190,6 +208,27 @@ const styles = StyleSheet.create({
     width: Dimensions.get('window').width - 40,
     height: 250,
     borderRadius: 12,
+  },
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   banner: {
     backgroundColor: '#1E90FF',

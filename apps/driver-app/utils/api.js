@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import offlineManager from './offlineManager';
 import performanceOptimizer from './performanceOptimizer';
 
-export const API_BASE_URL = "http://10.1.10.243:3000"; // Your computer's IP address 
+export const API_BASE_URL = "http://10.1.10.243:3000"; // Updated to your computer's local IP address
 
 // Mock data for when backend is not available
 export const MOCK_DATA = {
@@ -134,7 +134,7 @@ const mockData = {
 
 class ApiService {
   constructor() {
-    this.baseURL = 'http://localhost:3000/api';
+    this.baseURL = 'http://172.21.240.1:3000/api';
     this.token = null;
     this.isOnline = true;
     this.retryAttempts = 3;

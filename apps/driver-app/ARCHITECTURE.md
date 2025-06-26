@@ -85,11 +85,13 @@ App.js
 │           ├── DriverHome (Home Screen)
 │           ├── RideManagement (Feature Screen)
 │           ├── EarningsFinance (Feature Screen)
-│           ├── SafetyCommunication (Feature Screen)
+│           ├── SafetyCommunication (Feature Screen, backend-driven)
 │           ├── Profile (Feature Screen)
 │           ├── Wallet (Feature Screen)
 │           └── Settings (Feature Screen)
 ```
+
+- **SafetyCommunication.js** and related safety components are tightly coupled with backend state and real-time events. All safety actions (emergency alerts, incident reports, contact management, etc.) are persisted and synchronized via backend APIs and WebSocket events.
 
 ### **Component Types**
 
@@ -137,36 +139,33 @@ App.js
 
 ### **2. API Data Flow**
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Component │ ─► │   API Call  │ ─► │   Backend   │
-│   (Request) │    │   (utils)   │    │   Server    │
-└─────────────┘    └─────────────┘    └─────────────┘
-       ▲                   │                   │
-       │                   ▼                   │
-       │            ┌─────────────┐            │
-       │            │   Response  │            │
-       │            │   (JSON)    │            │
-       │            └─────────────┘            │
-       │                   │                   │
-       └───────────────────┴───────────────────┘
-                    State Update
-```
+Component (Request)
+  └── API Call (utils/api.js)
+      └── Backend Server (REST API)
+          └── Database (PostgreSQL)
+
+# Safety features:
+- Emergency contacts, safety settings, incident reports, emergency alerts, communication history, location/trip sharing, voice command logs, safety metrics, and driver verification are all managed via dedicated backend endpoints.
+- Example endpoints:
+  - `/api/drivers/:id/emergency-contacts`
+  - `/api/drivers/:id/safety-settings`
+  - `/api/drivers/:id/incident-reports`
+  - `/api/drivers/:id/emergency-alerts`
+  - `/api/drivers/:id/share-location`
+  - `/api/drivers/:id/share-trip`
+  - `/api/drivers/:id/voice-commands`
+  - `/api/drivers/:id/communication-history`
+  - `/api/drivers/:id/safety-metrics`
 
 ### **3. Real-time Data Flow**
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   WebSocket │ ─► │   Socket    │ ─► │   Component │
-│   Server    │    │   Handler   │    │   (Update)  │
-└─────────────┘    └─────────────┘    └─────────────┘
-       ▲                   │                   │
-       │                   ▼                   │
-       │            ┌─────────────┐            │
-       │            │   Event     │            │
-       │            │   Emitter   │            │
-       │            └─────────────┘            │
-       │                   │                   │
-       └───────────────────┴───────────────────┘
-                    Real-time Update
+WebSocket Server
+  └── Socket Handler
+      └── Component (Update)
+
+# Safety features:
+- Emergency alerts and incident reports trigger real-time notifications to admins and emergency contacts via WebSocket events (`emergency:alert`).
+- Components listen for these events to update UI and notify the driver in real time.
 ```
 
 ## 📊 State Management

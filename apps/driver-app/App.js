@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Import components
 import DrawerContent from './DrawerContent';
@@ -178,159 +179,179 @@ function MainApp() {
   return (
     <SafeAreaView style={styles.container}>
       <OfflineIndicator />
-      <NavigationContainer>
-        <Drawer.Navigator
-          drawerContent={(props) => <DrawerContent {...props} />}
-          screenOptions={screenOptions}
-        >
-          <Drawer.Screen 
-            name="Home" 
-            component={DriverHome} 
-            options={{
-              title: 'Driver Dashboard',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="home" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="RideManagement" 
-            component={RideManagement} 
-            options={{
-              title: 'Ride Management',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="car" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="EarningsFinance" 
-            component={EarningsFinance} 
-            options={{
-              title: 'Earnings & Finance',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="wallet" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="Wallet" 
-            component={Wallet} 
-            options={{
-              title: 'Wallet',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="card" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="TripHistory" 
-            component={TripHistory} 
-            options={{
-              title: 'Trip History',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="time" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="CustomerCommunication" 
-            component={CustomerCommunication} 
-            options={{
-              title: 'Customer Communication',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="chatbubbles" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="SafetyFeatures" 
-            component={SafetyFeatures} 
-            options={{
-              title: 'Safety Features',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="shield" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="SafetyCommunication" 
-            component={SafetyCommunication} 
-            options={{
-              title: 'Safety Communication',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="warning" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="VoiceCommands" 
-            component={VoiceCommands} 
-            options={{
-              title: 'Voice Commands',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="mic" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="AdvancedSafety" 
-            component={AdvancedSafety} 
-            options={{
-              title: 'Advanced Safety',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="medical" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="DriverAnalytics" 
-            component={DriverAnalytics} 
-            options={{
-              title: 'Analytics',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="analytics" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="Profile" 
-            component={Profile} 
-            options={{
-              title: 'Profile',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="person" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="Settings" 
-            component={Settings} 
-            options={{
-              title: 'Settings',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="settings" color={color} size={size} />
-              ),
-            }}
-          />
-          <Drawer.Screen 
-            name="Theme" 
-            component={Theme} 
-            options={{
-              title: 'Theme',
-              drawerIcon: ({ color, size }) => (
-                <Ionicons name="color-palette" color={color} size={size} />
-              ),
-            }}
-          />
-        </Drawer.Navigator>
-      </NavigationContainer>
+      <Drawer.Navigator
+        drawerContent={(props) => <DrawerContent {...props} />}
+        screenOptions={screenOptions}
+      >
+        <Drawer.Screen 
+          name="Home" 
+          component={DriverHome} 
+          options={{
+            title: 'Driver Dashboard',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="home" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="RideManagement" 
+          component={RideManagement} 
+          options={{
+            title: 'Ride Management',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="car" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="EarningsFinance" 
+          component={EarningsFinance} 
+          options={{
+            title: 'Earnings & Finance',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="wallet" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="Wallet" 
+          component={Wallet} 
+          options={{
+            title: 'Wallet',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="card" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="TripHistory" 
+          component={TripHistory} 
+          options={{
+            title: 'Trip History',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="time" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="CustomerCommunication" 
+          component={CustomerCommunication} 
+          options={{
+            title: 'Customer Communication',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="chatbubbles" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="SafetyFeatures" 
+          component={SafetyFeatures} 
+          options={{
+            title: 'Safety Features',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="shield" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="SafetyCommunication" 
+          component={SafetyCommunication} 
+          options={{
+            title: 'Safety Communication',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="warning" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="VoiceCommands" 
+          component={VoiceCommands} 
+          options={{
+            title: 'Voice Commands',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="mic" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="AdvancedSafety" 
+          component={AdvancedSafety} 
+          options={{
+            title: 'Advanced Safety',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="medical" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="DriverAnalytics" 
+          component={DriverAnalytics} 
+          options={{
+            title: 'Analytics',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="analytics" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="Profile" 
+          component={Profile} 
+          options={{
+            title: 'Profile',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="person" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="Settings" 
+          component={Settings} 
+          options={{
+            title: 'Settings',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="settings" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="Theme" 
+          component={Theme} 
+          options={{
+            title: 'Theme',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="color-palette" color={color} size={size} />
+            ),
+          }}
+        />
+      </Drawer.Navigator>
     </SafeAreaView>
   );
 }
 
+function AppNavigator() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator 
+        initialRouteName="Login"
+        screenOptions={{
+          headerShown: false
+        }}
+      >
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="MainApp" component={MainApp} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
-  return <ErrorBoundary><MainApp /></ErrorBoundary>;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <AppNavigator />
+      </ErrorBoundary>
+    </GestureHandlerRootView>
+  );
 }
 
 const styles = StyleSheet.create({
