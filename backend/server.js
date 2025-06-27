@@ -15,6 +15,7 @@ const auth = require('./middleware/auth');
 const morgan = require('morgan');
 const cors = require('cors');
 const adminRoutes = require('./routes/admin');
+const analyticsRoutes = require('./routes/analytics');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const helmet = require('helmet');
@@ -89,6 +90,7 @@ app.use('/api/users', auth('user'), userRoutes);
 app.use('/api/drivers', auth('driver'), driverRoutes);
 app.use('/api/rides', auth(), rideRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // --- API Routes ---
 app.get('/', (req, res) => {
