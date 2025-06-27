@@ -26,9 +26,14 @@ import AdvancedSafety from './components/AdvancedSafety';
 import DriverAnalytics from './components/DriverAnalytics';
 import ErrorBoundary from './components/ErrorBoundary';
 import OfflineIndicator from './components/OfflineIndicator';
-import LoadingSpinner from './components/LoadingSpinner';
+import LoadingSpinner from './components/ui/LoadingSpinner';
 import offlineManager from './utils/offlineManager';
 import performanceOptimizer from './utils/performanceOptimizer';
+import apiService from './utils/api';
+import LoginScreen from './LoginScreen';
+import { Colors } from './constants/Colors';
+import { Typography } from './constants/Typography';
+import { Spacing } from './constants/Spacing';
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
@@ -44,78 +49,6 @@ const SafetyCommunicationWrapper = (props) => <SafetyCommunication {...props} us
 const VoiceCommandsWrapper = (props) => <VoiceCommands {...props} user={global.user} token={global.token} />;
 const AdvancedSafetyWrapper = (props) => <AdvancedSafety {...props} user={global.user} token={global.token} />;
 const DriverAnalyticsWrapper = (props) => <DriverAnalytics {...props} user={global.user} token={global.token} />;
-
-function LoginScreen({ navigation }) {
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleLogin = async () => {
-    if (!phone || !password) {
-      Alert.alert('Error', 'Please enter both phone and password');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Mock login - replace with actual API call
-      const mockUser = {
-        id: 1,
-        name: 'John Driver',
-        phone: phone,
-        car: 'Toyota Prius 2020',
-        email: 'john.driver@example.com'
-      };
-
-      const mockToken = 'mock-jwt-token-123';
-
-      // Store in context or AsyncStorage
-      global.user = mockUser;
-      global.token = mockToken;
-
-      // Navigate to main app
-      navigation.replace('MainApp');
-    } catch (error) {
-      Alert.alert('Login Failed', 'Invalid credentials. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <SafeAreaView style={styles.loginContainer}>
-      <View style={styles.loginContent}>
-        <Text style={styles.loginTitle}>Driver Login</Text>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Phone Number"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-        />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        
-        <TouchableOpacity 
-          style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          <Text style={styles.loginButtonText}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
-}
 
 function MainApp() {
   const [isLoading, setIsLoading] = useState(true);
@@ -135,6 +68,9 @@ function MainApp() {
         
         // Initialize offline manager
         await offlineManager.init();
+        
+        // Initialize API service
+        await apiService.init();
         
         // Simulate loading time
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -156,23 +92,25 @@ function MainApp() {
   // Performance optimization: Memoize navigation options
   const screenOptions = performanceOptimizer.memoize('screenOptions', () => ({
     headerStyle: {
-      backgroundColor: '#2196F3',
+      backgroundColor: Colors.light.primary,
     },
-    headerTintColor: '#fff',
+    headerTintColor: Colors.light.textInverse,
     headerTitleStyle: {
-      fontWeight: 'bold',
+      ...Typography.h4,
+      color: Colors.light.textInverse,
     },
   }));
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <LoadingSpinner 
           type="pulse" 
           text="Initializing Driver App..." 
-          color="#2196F3"
+          color={Colors.light.primary}
+          size="large"
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -209,7 +147,47 @@ function MainApp() {
           options={{
             title: 'Earnings & Finance',
             drawerIcon: ({ color, size }) => (
-              <Ionicons name="wallet" color={color} size={size} />
+              <Ionicons name="cash" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="SafetyCommunication" 
+          component={SafetyCommunication} 
+          options={{
+            title: 'Safety & Communication',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="shield" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="VoiceCommands" 
+          component={VoiceCommands} 
+          options={{
+            title: 'Voice Commands',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="mic" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="AdvancedSafety" 
+          component={AdvancedSafety} 
+          options={{
+            title: 'Advanced Safety',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="warning" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="DriverAnalytics" 
+          component={DriverAnalytics} 
+          options={{
+            title: 'Analytics',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="analytics" color={color} size={size} />
             ),
           }}
         />
@@ -219,7 +197,17 @@ function MainApp() {
           options={{
             title: 'Wallet',
             drawerIcon: ({ color, size }) => (
-              <Ionicons name="card" color={color} size={size} />
+              <Ionicons name="wallet" color={color} size={size} />
+            ),
+          }}
+        />
+        <Drawer.Screen 
+          name="Profile" 
+          component={Profile} 
+          options={{
+            title: 'Profile',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="person" color={color} size={size} />
             ),
           }}
         />
@@ -249,57 +237,7 @@ function MainApp() {
           options={{
             title: 'Safety Features',
             drawerIcon: ({ color, size }) => (
-              <Ionicons name="shield" color={color} size={size} />
-            ),
-          }}
-        />
-        <Drawer.Screen 
-          name="SafetyCommunication" 
-          component={SafetyCommunication} 
-          options={{
-            title: 'Safety Communication',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="warning" color={color} size={size} />
-            ),
-          }}
-        />
-        <Drawer.Screen 
-          name="VoiceCommands" 
-          component={VoiceCommands} 
-          options={{
-            title: 'Voice Commands',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="mic" color={color} size={size} />
-            ),
-          }}
-        />
-        <Drawer.Screen 
-          name="AdvancedSafety" 
-          component={AdvancedSafety} 
-          options={{
-            title: 'Advanced Safety',
-            drawerIcon: ({ color, size }) => (
               <Ionicons name="medical" color={color} size={size} />
-            ),
-          }}
-        />
-        <Drawer.Screen 
-          name="DriverAnalytics" 
-          component={DriverAnalytics} 
-          options={{
-            title: 'Analytics',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="analytics" color={color} size={size} />
-            ),
-          }}
-        />
-        <Drawer.Screen 
-          name="Profile" 
-          component={Profile} 
-          options={{
-            title: 'Profile',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="person" color={color} size={size} />
             ),
           }}
         />
@@ -329,16 +267,76 @@ function MainApp() {
 }
 
 function AppNavigator() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      // Initialize API service
+      await apiService.init();
+      
+      // Check if user is already authenticated
+      const status = apiService.getStatus();
+      if (status.hasToken) {
+        try {
+          const profile = await apiService.getDriverProfile();
+          global.user = profile;
+          global.token = apiService.token;
+          setIsAuthenticated(true);
+        } catch (error) {
+          // Token is invalid, clear it
+          apiService.clearToken();
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('Authentication check error:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = (token, userProfile) => {
+    global.user = userProfile;
+    global.token = token;
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    apiService.clearToken();
+    global.user = null;
+    global.token = null;
+    setIsAuthenticated(false);
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <LoadingSpinner 
+          type="bounce" 
+          text="Checking Authentication..." 
+          color={Colors.light.primary}
+          size="large"
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName="Login"
-        screenOptions={{
-          headerShown: false
-        }}
-      >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="MainApp" component={MainApp} />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isAuthenticated ? (
+          <Stack.Screen name="MainApp" component={MainApp} />
+        ) : (
+          <Stack.Screen name="Login" component={(props) => <LoginScreen {...props} onLogin={handleLogin} />} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -355,57 +353,14 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  loginContainer: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loginContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loginTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    color: '#1976d2',
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  loginButton: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#1976d2',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  loginButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.light.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.light.background,
   },
 });
