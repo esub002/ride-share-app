@@ -39,7 +39,9 @@ describe('Server Tests', () => {
   test('should handle basic request', async () => {
     const response = await request(app).get('/');
     expect(response.status).toBe(200);
-    expect(response.text).toBe('api is working');
+    expect(response.body).toHaveProperty('message');
+    expect(response.body).toHaveProperty('version');
+    expect(response.body).toHaveProperty('timestamp');
   });
 
   test('should have proper middleware setup', () => {

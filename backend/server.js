@@ -1,3 +1,6 @@
+// Load environment variables
+require('dotenv').config();
+
 // server.js - Main Express app and Socket.IO server
 // Sets up routes, middleware, and real-time events
 
@@ -16,6 +19,7 @@ const morgan = require('morgan');
 const cors = require('cors');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
+const safetyRoutes = require('./routes/safety');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const helmet = require('helmet');
@@ -23,6 +27,9 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const server = http.createServer(app);
+
+// Set database pool in app.locals for tests
+app.locals.pool = pool;
 
 // Initialize Socket.IO with proper error handling
 let io;
@@ -91,6 +98,7 @@ app.use('/api/drivers', auth('driver'), driverRoutes);
 app.use('/api/rides', auth(), rideRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/safety', safetyRoutes);
 
 // --- API Routes ---
 app.get('/', (req, res) => {

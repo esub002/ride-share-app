@@ -57,11 +57,19 @@ router.post('/register', authLimiter, [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  
   const { name, email, password } = req.body;
-  // Prevent duplicate registration
-  const exists = await pool.query('SELECT 1 FROM users WHERE email = $1', [email]);
-  if (exists.rows.length > 0) return res.status(409).json({ error: 'Email already registered' });
+  
   try {
+    // Get pool from app.locals or require it directly
+    const pool = req.app.locals.pool || require('../db');
+    
+    // Prevent duplicate registration
+    const exists = await pool.query('SELECT 1 FROM users WHERE email = $1', [email]);
+    if (exists && exists.rows && exists.rows.length > 0) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+    
     const hash = await bcrypt.hash(password, 10);
     // Generate verification token and expiry (1 hour)
     const verification_token = crypto.randomBytes(32).toString('hex');
@@ -70,6 +78,7 @@ router.post('/register', authLimiter, [
       'INSERT INTO users (name, email, password, verification_token, verification_token_expires) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, verification_token',
       [name, email, hash, verification_token, verification_token_expires]
     );
+    
     // Send verification email with link
     const verifyUrl = `http://localhost:3000/api/auth/user/verify?token=${verification_token}`;
     await sendEmail({
@@ -78,8 +87,10 @@ router.post('/register', authLimiter, [
       text: `Welcome to RideShare, ${name}! Please verify your account: ${verifyUrl}`,
       html: `<div style='font-family:sans-serif'><h1>Welcome, ${name}!</h1><p>Please <a href="${verifyUrl}">verify your RideShare account</a>.<br>This link will expire in 1 hour.</p></div>`
     });
+    
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('Registration error:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -112,15 +123,30 @@ router.post('/login', [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  
   const { email, password } = req.body;
-  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-  const user = result.rows[0];
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  if (!user.verified) return res.status(403).json({ error: 'Email not verified' });
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = jwt.sign({ userId: user.id, role: 'user' }, JWT_SECRET, { expiresIn: '1d' });
-  res.json({ token });
+  
+  try {
+    // Get pool from app.locals or require it directly
+    const pool = req.app.locals.pool || require('../db');
+    
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (!result || !result.rows || !result.rows[0]) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const user = result.rows[0];
+    if (!user.verified) return res.status(403).json({ error: 'Email not verified' });
+    
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    
+    const token = jwt.sign({ userId: user.id, role: 'user' }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
 });
 
 // Email verification route

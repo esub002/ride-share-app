@@ -400,4 +400,137 @@ router.put('/verification-status', auth('driver'), async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/safety/emergency:
+ *   post:
+ *     summary: Report emergency alert
+ *     tags: [Safety]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               driverId:
+ *                 type: integer
+ *               alertType:
+ *                 type: string
+ *               location:
+ *                 type: object
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Emergency alert recorded
+ */
+router.post('/emergency', auth('driver'), async (req, res) => {
+  try {
+    const { driverId, alertType, location, notes } = req.body;
+    
+    // Validate required fields
+    if (!driverId || !alertType || !location) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Record emergency alert
+    const result = await pool.query(
+      'INSERT INTO safety_alerts (driver_id, alert_type, location, notes, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
+      [driverId, alertType, JSON.stringify(location), notes]
+    );
+    
+    // Broadcast to all connected clients via Socket.IO
+    if (req.app.get('io')) {
+      req.app.get('io').emit('emergency:alert', {
+        driverId,
+        alertType,
+        location,
+        notes,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    res.json({ 
+      message: 'Emergency alert recorded',
+      alert: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Emergency alert error:', error);
+    res.status(500).json({ error: 'Failed to record emergency alert' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/safety/alerts:
+ *   get:
+ *     summary: Get safety alerts
+ *     tags: [Safety]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of safety alerts
+ */
+router.get('/alerts', auth(), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM safety_alerts ORDER BY timestamp DESC LIMIT 50'
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get alerts error:', error);
+    res.status(500).json({ error: 'Failed to get safety alerts' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/safety/check-in:
+ *   post:
+ *     summary: Driver safety check-in
+ *     tags: [Safety]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               driverId:
+ *                 type: integer
+ *               location:
+ *                 type: object
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Check-in recorded
+ */
+router.post('/check-in', auth('driver'), async (req, res) => {
+  try {
+    const { driverId, location, status } = req.body;
+    
+    // Record safety check-in
+    const result = await pool.query(
+      'INSERT INTO safety_checkins (driver_id, location, status, timestamp) VALUES ($1, $2, $3, NOW()) RETURNING *',
+      [driverId, JSON.stringify(location), status]
+    );
+    
+    res.json({ 
+      message: 'Safety check-in recorded',
+      checkin: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Check-in error:', error);
+    res.status(500).json({ error: 'Failed to record check-in' });
+  }
+});
+
 module.exports = router; 
