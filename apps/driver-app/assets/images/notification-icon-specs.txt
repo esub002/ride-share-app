@@ -1,0 +1,69 @@
+Creating notification icon specifications...
+
+NOTIFICATION ICON SPECIFICATIONS
+================================
+
+File Name: notification-icon.png
+Location: apps/driver-app/assets/images/
+Size: 96x96 pixels (3x for high DPI displays)
+Format: PNG with transparency
+
+DESIGN SPECIFICATIONS:
+=====================
+
+Primary Colors:
+- Background: #FF6B35 (Orange - matches app theme)
+- Bell: #FFFFFF (White)
+- Notification dot: #FF0000 (Red)
+- Accent: #FFFFFF (White)
+
+Icon Elements:
+1. Circular background (44px radius)
+2. Bell shape (white)
+3. Bell clapper (orange)
+4. Bell handle (white)
+5. Red notification dot with white center
+6. Sound wave lines (white)
+
+Design Guidelines:
+- Clean, modern design
+- High contrast for visibility
+- Scalable to different sizes
+- Matches app's color scheme
+- Recognizable at small sizes
+
+USAGE:
+======
+- Push notifications
+- In-app notification badges
+- Alert indicators
+- Emergency notifications
+
+CONVERSION INSTRUCTIONS:
+========================
+1. Use the provided SVG as base
+2. Export to PNG at 96x96px
+3. Ensure transparency is preserved
+4. Test at different sizes (24x24, 48x48, 96x96)
+5. Verify visibility on light and dark backgrounds
+
+ALTERNATIVE DESIGNS:
+====================
+- Simple bell with notification dot
+- Car icon with notification badge
+- Shield with notification indicator
+- Location pin with alert symbol
+
+SVG CODE FOR REFERENCE:
+=======================
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="48" cy="48" r="44" fill="#FF6B35" stroke="#FFFFFF" stroke-width="4"/>
+  <path d="M32 28C32 20.268 38.268 14 46 14H50C57.732 14 64 20.268 64 28V44C64 52.732 68.268 58 76 58H20C27.732 58 32 52.732 32 44V28Z" fill="#FFFFFF"/>
+  <circle cx="48" cy="62" r="4" fill="#FF6B35"/>
+  <rect x="44" y="66" width="8" height="6" rx="4" fill="#FFFFFF"/>
+  <circle cx="64" cy="32" r="8" fill="#FF0000"/>
+  <circle cx="64" cy="32" r="4" fill="#FFFFFF"/>
+  <path d="M72 44C74.209 44 76 42.209 76 40C76 37.791 74.209 36 72 36" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M80 48C82.209 48 84 46.209 84 44C84 41.791 82.209 40 80 40" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M88 52C90.209 52 92 50.209 92 48C92 45.791 90.209 44 88 44" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+</svg>
