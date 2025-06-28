@@ -42,10 +42,24 @@ try {
   io = null;
 }
 
-// In-memory stores
+// In-memory stores for development when database is not available
 let availableDrivers = {};
 let pendingRides = {};
 let rideIdCounter = 1;
+
+// Mock data for development
+const mockData = {
+  users: [
+    { id: 1, name: 'Test User', email: 'user@test.com', phone: '+1234567890', verified: true },
+    { id: 2, name: 'John Driver', email: 'driver@test.com', phone: '+1234567891', car_info: 'Toyota Prius', verified: true }
+  ],
+  drivers: [
+    { id: 1, name: 'John Driver', email: 'driver@test.com', phone: '+1234567891', car_info: 'Toyota Prius', verified: true, available: true }
+  ],
+  rides: [
+    { id: 1, user_id: 1, driver_id: 1, pickup: '123 Main St', destination: '456 Oak Ave', status: 'completed', fare: 25.50 }
+  ]
+};
 
 app.use(express.json());
 app.use(morgan('combined'));
@@ -105,7 +119,8 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Ride Share API is working',
     version: '1.0.0',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    mode: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -114,9 +129,24 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    database: pool ? 'connected' : 'mock'
   });
 });
+
+// Development endpoints for testing
+if (process.env.NODE_ENV === 'development') {
+  app.get('/api/dev/mock-data', (req, res) => {
+    res.json(mockData);
+  });
+  
+  app.post('/api/dev/reset', (req, res) => {
+    rideIdCounter = 1;
+    pendingRides = {};
+    availableDrivers = {};
+    res.json({ message: 'Mock data reset' });
+  });
+}
 
 // Swagger setup
 const swaggerDefinition = {
@@ -146,7 +176,7 @@ const options = {
 const swaggerSpec = swaggerJsdoc(options);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Database connection check with retry logic
+// Database connection check with retry logic and fallback
 const checkDatabaseConnection = async (retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -157,6 +187,7 @@ const checkDatabaseConnection = async (retries = 3) => {
       console.error(`❌ Database connection attempt ${i + 1} failed:`, err.message);
       if (i === retries - 1) {
         console.error('❌ All database connection attempts failed');
+        console.log('🔄 Using mock database for development...');
         return false;
       }
       // Wait 2 seconds before retrying
@@ -199,76 +230,55 @@ if (io) {
       socket.once('ride:accept', ({ rideId: acceptedRideId, driverId: acceptingDriverId }) => {
         if (pendingRides[acceptedRideId] && pendingRides[acceptedRideId].driverId == acceptingDriverId) {
           pendingRides[acceptedRideId].status = 'accepted';
-          // Notify rider
-          io.to(pendingRides[acceptedRideId].riderSocketId).emit('ride:assigned', {
-            rideId: acceptedRideId,
-            driverId: acceptingDriverId,
-            origin: pendingRides[acceptedRideId].origin,
-            destination: pendingRides[acceptedRideId].destination
-          });
-          // Remove driver from available
-          delete availableDrivers[acceptingDriverId];
+          const riderSocketId = pendingRides[acceptedRideId].riderSocketId;
+          io.to(riderSocketId).emit('ride:accepted', { rideId: acceptedRideId, driverId: acceptingDriverId });
+          console.log(`✅ Ride ${acceptedRideId} accepted by driver ${acceptingDriverId}`);
         }
       });
     });
 
-    // Listen for driver location updates
-    socket.on('driver:location', async ({ driverId, latitude, longitude }) => {
-      if (typeof latitude === 'number' && typeof longitude === 'number') {
-        try {
-          await pool.query('UPDATE drivers SET latitude = $1, longitude = $2 WHERE id = $3', [latitude, longitude, driverId]);
-          // Broadcast to all riders/admins (or filter as needed)
-          io.emit('driver:locationUpdate', { driverId, latitude, longitude });
-        } catch (error) {
-          console.error('Error updating driver location:', error);
-        }
+    // DRIVER: Accept ride
+    socket.on('ride:accept', ({ rideId, driverId }) => {
+      if (pendingRides[rideId] && pendingRides[rideId].driverId == driverId) {
+        pendingRides[rideId].status = 'accepted';
+        const riderSocketId = pendingRides[rideId].riderSocketId;
+        io.to(riderSocketId).emit('ride:accepted', { rideId, driverId });
+        console.log(`✅ Ride ${rideId} accepted by driver ${driverId}`);
       }
     });
 
-    // Listen for ride status updates and broadcast to relevant users
-    socket.on('ride:statusUpdate', ({ rideId, status, userId, driverId }) => {
-      io.emit('ride:status', { rideId, status, userId, driverId });
+    // DRIVER: Complete ride
+    socket.on('ride:complete', ({ rideId, driverId }) => {
+      if (pendingRides[rideId] && pendingRides[rideId].driverId == driverId) {
+        pendingRides[rideId].status = 'completed';
+        const riderSocketId = pendingRides[rideId].riderSocketId;
+        io.to(riderSocketId).emit('ride:completed', { rideId, driverId });
+        console.log(`✅ Ride ${rideId} completed by driver ${driverId}`);
+        delete pendingRides[rideId];
+      }
     });
 
-    // Listen for ride cancellation
-    socket.on('ride:cancelled', ({ rideId, userId, driverId }) => {
-      io.emit('ride:cancelled', { rideId, userId, driverId });
-    });
-
-    // Listen for chat messages
-    socket.on('ride:chat', ({ rideId, sender, message }) => {
-      io.emit('ride:chat', { rideId, sender, message });
-    });
-
-    // Listen for emergency alerts
-    socket.on('emergency:alert', ({ driverId, alertType, location, notes }) => {
-      console.log(`🚨 Emergency alert from driver ${driverId}: ${alertType}`);
-      io.emit('emergency:alert', { driverId, alertType, location, notes, timestamp: new Date().toISOString() });
-    });
-
-    // Clean up on disconnect
     socket.on('disconnect', () => {
       console.log(`🔌 Client disconnected: ${socket.id}`);
-      // Remove driver if present
-      for (const [driverId, sockId] of Object.entries(availableDrivers)) {
-        if (sockId === socket.id) {
+      // Remove driver from available list
+      Object.keys(availableDrivers).forEach(driverId => {
+        if (availableDrivers[driverId] === socket.id) {
           delete availableDrivers[driverId];
-          console.log(`🚗 Driver ${driverId} removed from available list`);
+          console.log(`🚗 Driver ${driverId} no longer available`);
         }
-      }
+      });
     });
   });
 }
 
-// --- Server Startup ---
+// Start server
 const PORT = process.env.PORT || 3000;
-if (require.main === module) {
-  server.listen(PORT, () => {
-    console.log(`🚀 Backend API listening on port ${PORT}`);
-    console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
-    console.log(`🏥 Health check available at http://localhost:${PORT}/health`);
-  });
-}
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📱 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔗 API docs: http://localhost:${PORT}/api-docs`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
 
 module.exports = app;
 

@@ -1,0 +1,38 @@
+# Development Dockerfile for Backend API
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    postgresql-client \
+    curl \
+    bash \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p logs backups
+
+# Create health check script
+RUN echo '#!/bin/bash\ncurl -f http://localhost:3000/health || exit 1' > /healthcheck.sh && \
+    chmod +x /healthcheck.sh
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["/healthcheck.sh"]
+
+# Start development server with nodemon
+CMD ["npm", "run", "dev"] 

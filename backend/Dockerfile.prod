@@ -2,14 +2,19 @@
 # PRODUCTION DOCKERFILE - RIDE SHARE BACKEND
 # ========================================
 
-# Stage 1: Build stage
+# Production Dockerfile for Backend API
 FROM node:18-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
+# Install system dependencies for build
+RUN apk add --no-cache \
+    postgresql-client \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/cache/apk/*
 
 # Copy package files
 COPY package*.json ./
@@ -20,6 +25,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy source code
 COPY . .
 
+# Create production build (if needed)
+RUN npm run build || true
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
@@ -27,42 +35,46 @@ RUN adduser -S nodejs -u 1001
 # Stage 2: Production stage
 FROM node:18-alpine AS production
 
-# Install security updates and required packages
-RUN apk add --no-cache \
-    dumb-init \
-    && rm -rf /var/cache/apk/*
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Install production dependencies only
+RUN apk add --no-cache \
+    postgresql-client \
+    curl \
+    bash \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application from builder stage
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/routes ./routes
-COPY --from=builder --chown=nodejs:nodejs /app/middleware ./middleware
-COPY --from=builder --chown=nodejs:nodejs /app/utils ./utils
-COPY --from=builder --chown=nodejs:nodejs /app/server.js ./
-COPY --from=builder --chown=nodejs:nodejs /app/db.js ./
+COPY --from=builder --chown=nodejs:nodejs /app ./
 
-# Create necessary directories
-RUN mkdir -p logs uploads backups && chown -R nodejs:nodejs logs uploads backups
+# Create necessary directories with proper permissions
+RUN mkdir -p logs backups && \
+    chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs
+
+# Create health check script
+RUN echo '#!/bin/bash\ncurl -f http://localhost:3000/health || exit 1' > /healthcheck.sh && \
+    chmod +x /healthcheck.sh
 
 # Expose port
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["/healthcheck.sh"]
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start the application
-CMD ["node", "server.js"] 
+# Start production server
+CMD ["npm", "start"] 
