@@ -8,22 +8,52 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const pool = require('./db');
+
+// Import enhanced middleware
+const { auth, optionalAuth, refreshToken, logout } = require('./middleware/auth');
+const { 
+  corsOptions, 
+  helmetConfig, 
+  rateLimiters, 
+  validateApiKey,
+  sanitizeInput,
+  requestLogger,
+  errorHandler,
+  securityHeaders,
+  limitRequestSize
+} = require('./middleware/security');
+const { 
+  pool, 
+  secureQuery, 
+  transaction, 
+  auditLog,
+  healthCheck 
+} = require('./middleware/database');
+
+// Import caching and performance systems
+const { cacheManager } = require('./utils/cache');
+const { performanceMonitor, performanceMiddleware } = require('./utils/performance');
+const { globalErrorHandler } = require('./utils/errorHandler');
+
+// Import routes
 const userRoutes = require('./routes/user');
 const driverRoutes = require('./routes/driver');
 const rideRoutes = require('./routes/ride');
 const authUser = require('./routes/authUser');
 const authDriver = require('./routes/authDriver');
-const auth = require('./middleware/auth');
-const morgan = require('morgan');
-const cors = require('cors');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 const safetyRoutes = require('./routes/safety');
+const performanceRoutes = require('./routes/performance');
+
+// Import utilities
+const morgan = require('morgan');
+const cors = require('cors');
+const helmet = require('helmet');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+
+const SocketService = require('./services/socketService');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,15 +61,46 @@ const server = http.createServer(app);
 // Set database pool in app.locals for tests
 app.locals.pool = pool;
 
-// Initialize Socket.IO with proper error handling
-let io;
+// Initialize caching and performance systems
+let cacheInitialized = false;
+let performanceInitialized = false;
+
+// Initialize Redis cache
+async function initializeCache() {
+  try {
+    cacheInitialized = await cacheManager.connect();
+    if (cacheInitialized) {
+      console.log('✅ Redis cache initialized successfully');
+    } else {
+      console.warn('⚠️ Redis cache initialization failed - continuing without cache');
+    }
+  } catch (error) {
+    console.error('❌ Redis cache initialization error:', error);
+  }
+}
+
+// Initialize performance monitoring
+function initializePerformance() {
+  try {
+    performanceInitialized = true;
+    console.log('✅ Performance monitoring initialized');
+  } catch (error) {
+    console.error('❌ Performance monitoring initialization error:', error);
+  }
+}
+
+// Initialize systems
+initializeCache();
+initializePerformance();
+
+// Initialize Socket.IO with advanced SocketService
+let socketService;
 try {
-  io = new Server(server, {
-    cors: { origin: '*' }
-  });
+  socketService = new SocketService(server);
+  app.set('io', socketService.getIO());
 } catch (error) {
   console.error('Socket.IO initialization error:', error);
-  io = null;
+  socketService = null;
 }
 
 // In-memory stores for development when database is not available
@@ -61,58 +122,53 @@ const mockData = {
   ]
 };
 
-app.use(express.json());
+// Apply security middleware
+app.use(helmet(helmetConfig));
+app.use(cors(corsOptions));
+app.use(securityHeaders);
+app.use(limitRequestSize);
+app.use(sanitizeInput);
+app.use(requestLogger);
+
+// Apply performance monitoring middleware
+app.use(performanceMiddleware());
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Logging middleware
 app.use(morgan('combined'));
 
-// Enhanced CORS configuration
-const allowedOrigins = process.env.CORS_ORIGINS ? 
-  process.env.CORS_ORIGINS.split(',') : 
-  ['http://localhost:3000', 'http://localhost:19006', 'exp://localhost:19000'];
+// Apply rate limiting
+app.use(rateLimiters.global);
 
-app.use(cors({ 
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true 
-}));
+// --- Authentication Routes (with auth rate limiting) ---
+app.use('/api/auth/user', rateLimiters.auth, authUser);
+app.use('/api/auth/driver', rateLimiters.auth, authDriver);
 
-// Enhanced security headers
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-}));
+// Token refresh endpoint
+app.post('/api/auth/refresh', rateLimiters.auth, refreshToken());
 
-// Global rate limiting middleware
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(globalLimiter);
+// Logout endpoint
+app.post('/api/auth/logout', auth(), logout());
 
-// --- Middleware ---
-app.use('/api/auth/user', authUser);
-app.use('/api/auth/driver', authDriver);
+// --- Protected Routes ---
 app.use('/api/users', auth('user'), userRoutes);
 app.use('/api/drivers', auth('driver'), driverRoutes);
 app.use('/api/rides', auth(), rideRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/safety', safetyRoutes);
+
+// --- Admin Routes (with API key validation) ---
+app.use('/api/admin', validateApiKey, auth('admin'), adminRoutes);
+
+// --- Analytics Routes (with API key validation) ---
+app.use('/api/analytics', validateApiKey, auth(), analyticsRoutes);
+
+// --- Safety Routes ---
+app.use('/api/safety', auth(), safetyRoutes);
+
+// --- Performance Routes (admin only) ---
+app.use('/api/performance', validateApiKey, auth('admin'), performanceRoutes);
 
 // --- API Routes ---
 app.get('/', (req, res) => {
@@ -124,14 +180,35 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    database: pool ? 'connected' : 'mock'
-  });
+// Enhanced health check endpoint
+app.get('/health', async (req, res) => {
+  try {
+    let dbHealth;
+    try {
+      dbHealth = await healthCheck();
+    } catch (dbError) {
+      dbHealth = {
+        status: 'unavailable',
+        error: dbError.message,
+        message: 'Database connection failed - using mock data'
+      };
+    }
+    
+    res.json({ 
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: dbHealth,
+      memory: process.memoryUsage(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Development endpoints for testing
@@ -146,6 +223,15 @@ if (process.env.NODE_ENV === 'development') {
     availableDrivers = {};
     res.json({ message: 'Mock data reset' });
   });
+  
+  // Development endpoint to test authentication
+  app.get('/api/dev/test-auth', auth(), (req, res) => {
+    res.json({
+      message: 'Authentication working',
+      user: req.user,
+      token: req.token
+    });
+  });
 }
 
 // Swagger setup
@@ -154,7 +240,7 @@ const swaggerDefinition = {
   info: {
     title: 'Ride Share App API',
     version: '1.0.0',
-    description: 'API documentation for the Ride Share App backend with enhanced safety features.'
+    description: 'API documentation for the Ride Share App backend with enhanced security features.'
   },
   servers: [
     { url: 'http://localhost:3000' }
@@ -165,9 +251,20 @@ const swaggerDefinition = {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
+      },
+      apiKeyAuth: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-API-Key',
       }
     }
-  }
+  },
+  security: [
+    {
+      bearerAuth: [],
+      apiKeyAuth: []
+    }
+  ]
 };
 const options = {
   swaggerDefinition,
@@ -180,7 +277,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 const checkDatabaseConnection = async (retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
-      const result = await pool.query('SELECT NOW() as now');
+      const result = await secureQuery('SELECT NOW() as now');
       console.log('✅ Database connected successfully:', result.rows[0].now);
       return true;
     } catch (err) {
@@ -199,126 +296,62 @@ const checkDatabaseConnection = async (retries = 3) => {
 // Initialize database connection
 checkDatabaseConnection();
 
-// --- Real-time Events ---
-if (io) {
-  app.set('io', io);
+// Error handling middleware (must be last)
+app.use(globalErrorHandler);
 
-  io.on('connection', (socket) => {
-    console.log(`🔌 Client connected: ${socket.id}`);
-
-    // DRIVER: Mark as available
-    socket.on('driver:available', ({ driverId }) => {
-      availableDrivers[driverId] = socket.id;
-      console.log(`🚗 Driver ${driverId} available: ${socket.id}`);
-    });
-
-    // RIDER: Request a ride
-    socket.on('ride:request', ({ origin, destination, riderId }) => {
-      const driverIds = Object.keys(availableDrivers);
-      if (driverIds.length === 0) {
-        socket.emit('ride:noDrivers');
-        return;
-      }
-      // Assign first available driver
-      const driverId = driverIds[0];
-      const driverSocketId = availableDrivers[driverId];
-      const rideId = rideIdCounter++;
-      pendingRides[rideId] = { riderId, driverId, origin, destination, status: 'pending', riderSocketId: socket.id };
-      // Notify driver
-      io.to(driverSocketId).emit('ride:incoming', { rideId, origin, destination, riderId });
-      // Wait for driver to accept
-      socket.once('ride:accept', ({ rideId: acceptedRideId, driverId: acceptingDriverId }) => {
-        if (pendingRides[acceptedRideId] && pendingRides[acceptedRideId].driverId == acceptingDriverId) {
-          pendingRides[acceptedRideId].status = 'accepted';
-          const riderSocketId = pendingRides[acceptedRideId].riderSocketId;
-          io.to(riderSocketId).emit('ride:accepted', { rideId: acceptedRideId, driverId: acceptingDriverId });
-          console.log(`✅ Ride ${acceptedRideId} accepted by driver ${acceptingDriverId}`);
-        }
-      });
-    });
-
-    // DRIVER: Accept ride
-    socket.on('ride:accept', ({ rideId, driverId }) => {
-      if (pendingRides[rideId] && pendingRides[rideId].driverId == driverId) {
-        pendingRides[rideId].status = 'accepted';
-        const riderSocketId = pendingRides[rideId].riderSocketId;
-        io.to(riderSocketId).emit('ride:accepted', { rideId, driverId });
-        console.log(`✅ Ride ${rideId} accepted by driver ${driverId}`);
-      }
-    });
-
-    // DRIVER: Complete ride
-    socket.on('ride:complete', ({ rideId, driverId }) => {
-      if (pendingRides[rideId] && pendingRides[rideId].driverId == driverId) {
-        pendingRides[rideId].status = 'completed';
-        const riderSocketId = pendingRides[rideId].riderSocketId;
-        io.to(riderSocketId).emit('ride:completed', { rideId, driverId });
-        console.log(`✅ Ride ${rideId} completed by driver ${driverId}`);
-        delete pendingRides[rideId];
-      }
-    });
-
-    socket.on('disconnect', () => {
-      console.log(`🔌 Client disconnected: ${socket.id}`);
-      // Remove driver from available list
-      Object.keys(availableDrivers).forEach(driverId => {
-        if (availableDrivers[driverId] === socket.id) {
-          delete availableDrivers[driverId];
-          console.log(`🚗 Driver ${driverId} no longer available`);
-        }
-      });
-    });
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Endpoint not found',
+    code: 'ENDPOINT_NOT_FOUND',
+    path: req.originalUrl
   });
-}
+});
 
-// Start server with port conflict handling
+// Server startup function
 const startServer = async (initialPort) => {
-  const maxPortAttempts = 10;
-  let currentPort = initialPort;
-  
-  for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
+  let port = initialPort;
+  const maxAttempts = 10;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       await new Promise((resolve, reject) => {
-        const serverInstance = server.listen(currentPort, () => {
-          console.log(`🚀 Server running on port ${currentPort}`);
-          console.log(`📱 Health check: http://localhost:${currentPort}/health`);
-          console.log(`🔗 API docs: http://localhost:${currentPort}/api-docs`);
-          console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+        server.listen(port, () => {
+          console.log(`🚀 Server running on port ${port}`);
+          console.log(`📚 API Documentation: http://localhost:${port}/api-docs`);
+          console.log(`🏥 Health Check: http://localhost:${port}/health`);
           resolve();
         });
-        
-        serverInstance.on('error', (error) => {
+
+        server.on('error', (error) => {
           if (error.code === 'EADDRINUSE') {
-            console.log(`⚠️ Port ${currentPort} is in use, trying ${currentPort + 1}...`);
-            currentPort++;
-            serverInstance.close();
+            console.log(`⚠️ Port ${port} is busy, trying ${port + 1}...`);
+            port++;
             reject(error);
           } else {
+            console.error('❌ Server error:', error);
             reject(error);
           }
         });
       });
-      
+
       // If we get here, the server started successfully
-      return;
-      
+      break;
     } catch (error) {
-      if (error.code === 'EADDRINUSE' && attempt < maxPortAttempts - 1) {
-        // Continue to next port
-        continue;
-      } else {
-        console.error('❌ Failed to start server:', error.message);
+      if (attempt === maxAttempts - 1) {
+        console.error('❌ Failed to start server after multiple attempts');
         process.exit(1);
       }
+      // Continue to next attempt
     }
   }
-  
-  console.error('❌ No available ports found');
-  process.exit(1);
 };
 
-const PORT = process.env.PORT || 3000;
-startServer(parseInt(PORT));
+// Start server if this file is run directly
+if (require.main === module) {
+  const port = process.env.PORT || 3000;
+  startServer(port);
+}
 
 module.exports = app;
 

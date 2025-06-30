@@ -1,5 +1,5 @@
 // driver.js - Driver CRUD, location, and related endpoints
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const pool = require('../db');

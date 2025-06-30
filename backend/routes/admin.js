@@ -1,9 +1,10 @@
 // admin.js - Admin endpoints for user, driver, ride management, logs, and analytics
 
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const pool = require('../db');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const fs = require('fs');
 const path = require('path');
 
