@@ -2,6 +2,13 @@
 
 A comprehensive React Native driver application built with Expo, featuring advanced ride management, earnings tracking, safety features, and real-time communication.
 
+## 🆕 Recent Enhancements (2025)
+- **Robust Map Marker Validation:** Prevents map errors by only rendering markers with valid coordinates, eliminating 'AIRMapMarker' update errors.
+- **Enhanced Navigation & Map Integration:** Improved navigation UI, route/traffic visualization, and seamless integration with Google Maps/Mapbox.
+- **Real-Time Ride Requests:** More reliable socket utilities, notification services, and request queue management for live ride handling.
+- **Login & OTP Fixes:** Streamlined login flow, better error handling, and a 'Skip Login' option for development/testing.
+- **Backend Improvements:** Mock database fallbacks, improved startup scripts, and better port handling for smoother development and deployment.
+
 ## 📱 Features Overview
 
 ### 🏠 **Home Dashboard**
@@ -35,6 +42,7 @@ A comprehensive React Native driver application built with Expo, featuring advan
 - **Navigation integration** - Built-in navigation support
 - **Ride status tracking** - Complete ride lifecycle management
 - **Customer communication** - In-app messaging with riders
+- **Robust marker validation** - Prevents invalid map marker errors during ride management
 
 ### 👤 **Profile & Settings**
 - **Driver profile** - Personal and vehicle information
@@ -188,6 +196,7 @@ Home Dashboard
 - **Ride Status**: Complete ride lifecycle tracking
 - **Navigation**: Built-in navigation integration
 - **Customer Chat**: In-app messaging system
+- **Robust Marker Validation**: Only renders map markers with valid coordinates, preventing runtime errors
 
 ## 🎨 UI/UX Features
 
