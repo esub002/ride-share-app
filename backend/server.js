@@ -18,7 +18,6 @@ const {
   validateApiKey,
   sanitizeInput,
   requestLogger,
-  errorHandler,
   securityHeaders,
   limitRequestSize
 } = require('./middleware/security');

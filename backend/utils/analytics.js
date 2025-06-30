@@ -1,5 +1,6 @@
 const pool = require('../db');
 const logger = require('./logger');
+const { secureQuery } = require('../middleware/database');
 
 class AnalyticsService {
   constructor() {
@@ -830,4 +831,117 @@ class AnalyticsService {
   }
 }
 
-module.exports = new AnalyticsService(); 
+/**
+ * Analytics Processing Utility
+ * Processes analytics events and stores them in the database
+ */
+
+/**
+ * Process analytics event
+ * @param {Object} eventData - The analytics event data
+ */
+async function processAnalyticsEvent(eventData) {
+  try {
+    const { event, userId, data, timestamp = new Date() } = eventData;
+    
+    // Store analytics event in database
+    await secureQuery(
+      'INSERT INTO analytics_events (event_type, user_id, event_data, created_at) VALUES ($1, $2, $3, $4)',
+      [event, userId, JSON.stringify(data), timestamp]
+    );
+    
+    // Process specific event types
+    switch (event) {
+      case 'ride_completed':
+        await processRideCompletedEvent(eventData);
+        break;
+      case 'user_registered':
+        await processUserRegisteredEvent(eventData);
+        break;
+      case 'driver_online':
+        await processDriverOnlineEvent(eventData);
+        break;
+      default:
+        logger.debug('Analytics event processed', { event, userId });
+    }
+    
+    logger.info('Analytics event processed successfully', { event, userId });
+  } catch (error) {
+    logger.error('Failed to process analytics event', { error: error.message, eventData });
+    throw error;
+  }
+}
+
+/**
+ * Process ride completed event
+ */
+async function processRideCompletedEvent(eventData) {
+  const { rideId, fare, distance, duration } = eventData.data;
+  
+  // Update ride statistics
+  await secureQuery(
+    'UPDATE rides SET completed_at = NOW(), actual_fare = $1, distance = $2, duration = $3 WHERE id = $4',
+    [fare, distance, duration, rideId]
+  );
+  
+  // Update driver earnings
+  if (eventData.driverId) {
+    await secureQuery(
+      'UPDATE drivers SET total_earnings = total_earnings + $1, total_rides = total_rides + 1 WHERE id = $2',
+      [fare, eventData.driverId]
+    );
+  }
+}
+
+/**
+ * Process user registered event
+ */
+async function processUserRegisteredEvent(eventData) {
+  const { userId, registrationMethod } = eventData.data;
+  
+  // Update user registration analytics
+  await secureQuery(
+    'INSERT INTO user_analytics (user_id, registration_method, registration_date) VALUES ($1, $2, NOW())',
+    [userId, registrationMethod || 'email']
+  );
+}
+
+/**
+ * Process driver online event
+ */
+async function processDriverOnlineEvent(eventData) {
+  const { driverId, location } = eventData.data;
+  
+  // Update driver availability
+  await secureQuery(
+    'UPDATE drivers SET available = TRUE, last_online = NOW(), latitude = $1, longitude = $2 WHERE id = $3',
+    [location?.latitude, location?.longitude, driverId]
+  );
+}
+
+/**
+ * Get analytics summary
+ */
+async function getAnalyticsSummary() {
+  try {
+    const summary = await secureQuery(`
+      SELECT 
+        COUNT(*) as total_events,
+        COUNT(DISTINCT user_id) as unique_users,
+        COUNT(CASE WHEN event_type = 'ride_completed' THEN 1 END) as completed_rides,
+        COUNT(CASE WHEN event_type = 'user_registered' THEN 1 END) as new_users
+      FROM analytics_events 
+      WHERE created_at >= NOW() - INTERVAL '24 hours'
+    `);
+    
+    return summary.rows[0];
+  } catch (error) {
+    logger.error('Failed to get analytics summary', { error: error.message });
+    throw error;
+  }
+}
+
+module.exports = {
+  processAnalyticsEvent,
+  getAnalyticsSummary
+}; 
