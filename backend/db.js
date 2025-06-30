@@ -75,31 +75,37 @@ class MockDatabase {
 
 let pool;
 
-try {
-  // Try to create a real PostgreSQL connection
-  pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'ride_share',
-    password: process.env.DB_PASSWORD || 'postgres',
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
-  });
-
-  // Test the connection
-  pool.query('SELECT NOW() as test')
-    .then(() => {
-      console.log('✅ PostgreSQL connected successfully');
-    })
-    .catch((err) => {
-      console.log('❌ PostgreSQL connection failed, using mock database');
-      console.log('   Error:', err.message);
-      pool = new MockDatabase();
+// Use mock database by default in development to avoid PostgreSQL connection issues
+if (process.env.NODE_ENV === 'development' && !process.env.USE_REAL_DB) {
+  console.log('🔄 Development mode: Using mock database');
+  pool = new MockDatabase();
+} else {
+  try {
+    // Try to create a real PostgreSQL connection
+    pool = new Pool({
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'ride_share',
+      password: process.env.DB_PASSWORD || 'postgres',
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
     });
 
-} catch (error) {
-  console.log('❌ PostgreSQL pool creation failed, using mock database');
-  console.log('   Error:', error.message);
-  pool = new MockDatabase();
+    // Test the connection
+    pool.query('SELECT NOW() as test')
+      .then(() => {
+        console.log('✅ PostgreSQL connected successfully');
+      })
+      .catch((err) => {
+        console.log('❌ PostgreSQL connection failed, using mock database');
+        console.log('   Error:', err.message);
+        pool = new MockDatabase();
+      });
+
+  } catch (error) {
+    console.log('❌ PostgreSQL pool creation failed, using mock database');
+    console.log('   Error:', error.message);
+    pool = new MockDatabase();
+  }
 }
 
 module.exports = pool;

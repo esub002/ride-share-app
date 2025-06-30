@@ -306,6 +306,16 @@ export default function DriverHome({ navigation }) {
     setCurrentRide(rideRequest);
     setRideRequests(prev => prev.filter(ride => ride.id !== rideRequest.id));
     setShowRideRequests(false);
+    
+    // Navigate to enhanced navigation screen
+    navigation.navigate('EnhancedNavigation', {
+      ride: rideRequest,
+      onRideComplete: (completedRide) => {
+        setCurrentRide(null);
+        loadEarnings(); // Refresh earnings
+        Alert.alert('Success', 'Ride completed successfully!');
+      }
+    });
   };
 
   // Handle ride rejection
@@ -326,6 +336,20 @@ export default function DriverHome({ navigation }) {
       Alert.alert('Error', 'Failed to complete ride. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Navigate to enhanced navigation for current ride
+  const navigateToEnhancedNavigation = () => {
+    if (currentRide) {
+      navigation.navigate('EnhancedNavigation', {
+        ride: currentRide,
+        onRideComplete: (completedRide) => {
+          setCurrentRide(null);
+          loadEarnings(); // Refresh earnings
+          Alert.alert('Success', 'Ride completed successfully!');
+        }
+      });
     }
   };
 
@@ -533,15 +557,25 @@ export default function DriverHome({ navigation }) {
                   <Text style={styles.rideInfoText}>Fare: ${currentRide.fare}</Text>
                 </View>
               </View>
-              <Button
-                title="Complete Ride"
-                onPress={completeRide}
-                loading={loading}
-                variant="success"
-                size="large"
-                icon="checkmark"
-                style={styles.completeButton}
-              />
+              <View style={styles.rideActions}>
+                <Button
+                  title="Start Navigation"
+                  onPress={navigateToEnhancedNavigation}
+                  variant="primary"
+                  size="medium"
+                  icon="navigate"
+                  style={styles.navigationButton}
+                />
+                <Button
+                  title="Complete Ride"
+                  onPress={completeRide}
+                  loading={loading}
+                  variant="success"
+                  size="medium"
+                  icon="checkmark"
+                  style={styles.completeButton}
+                />
+              </View>
             </Card>
           )}
 
@@ -598,18 +632,24 @@ export default function DriverHome({ navigation }) {
                 showsMyLocationButton={true}
               >
                 {/* Driver location marker */}
-                <Marker
-                  coordinate={currentLocation}
-                  title="Your Location"
-                  description="Driver location"
-                >
-                  <View style={styles.driverMarker}>
-                    <Ionicons name="car" size={24} color={Colors.light.primary} />
-                  </View>
-                </Marker>
+                {currentLocation && typeof currentLocation.latitude === 'number' && typeof currentLocation.longitude === 'number' && (
+                  <Marker
+                    coordinate={currentLocation}
+                    title="Your Location"
+                    description="Driver location"
+                  >
+                    <View style={styles.driverMarker}>
+                      <Ionicons name="car" size={24} color={Colors.light.primary} />
+                    </View>
+                  </Marker>
+                )}
 
                 {/* Current ride route */}
-                {currentRide && currentRide.pickup && currentRide.destination && (
+                {currentRide && currentRide.pickup && currentRide.destination &&
+                  typeof currentRide.pickup.latitude === 'number' &&
+                  typeof currentRide.pickup.longitude === 'number' &&
+                  typeof currentRide.destination.latitude === 'number' &&
+                  typeof currentRide.destination.longitude === 'number' && (
                   <>
                     <Marker
                       coordinate={{
@@ -889,6 +929,15 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.light.textSecondary,
     marginLeft: Spacing.small,
+  },
+  rideActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.medium,
+  },
+  navigationButton: {
+    marginRight: Spacing.medium,
   },
   completeButton: {
     marginTop: Spacing.medium,

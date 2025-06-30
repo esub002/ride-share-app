@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -31,6 +31,7 @@ import offlineManager from './utils/offlineManager';
 import performanceOptimizer from './utils/performanceOptimizer';
 import apiService from './utils/api';
 import LoginScreen from './LoginScreen';
+import EnhancedNavigationScreen from './screens/EnhancedNavigationScreen';
 import { Colors } from './constants/Colors';
 import { Typography } from './constants/Typography';
 import { Spacing } from './constants/Spacing';
@@ -49,6 +50,28 @@ const SafetyCommunicationWrapper = (props) => <SafetyCommunication {...props} us
 const VoiceCommandsWrapper = (props) => <VoiceCommands {...props} user={global.user} token={global.token} />;
 const AdvancedSafetyWrapper = (props) => <AdvancedSafety {...props} user={global.user} token={global.token} />;
 const DriverAnalyticsWrapper = (props) => <DriverAnalytics {...props} user={global.user} token={global.token} />;
+
+// Create a wrapper that provides the onLogin function
+const createLoginScreenWrapper = (onLogin) => {
+  return React.memo(() => <LoginScreen onLogin={onLogin} />);
+};
+
+// Stack Navigator for main app screens
+function MainAppStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="DrawerHome" component={MainApp} />
+      <Stack.Screen 
+        name="EnhancedNavigation" 
+        component={EnhancedNavigationScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 function MainApp() {
   const [isLoading, setIsLoading] = useState(true);
@@ -316,6 +339,9 @@ function AppNavigator() {
     setIsAuthenticated(false);
   };
 
+  // Create a stable LoginScreenWrapper with the onLogin function
+  const LoginScreenWrapper = useMemo(() => createLoginScreenWrapper(handleLogin), [handleLogin]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -333,9 +359,12 @@ function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <Stack.Screen name="MainApp" component={MainApp} />
+          <Stack.Screen name="MainApp" component={MainAppStack} />
         ) : (
-          <Stack.Screen name="Login" component={(props) => <LoginScreen {...props} onLogin={handleLogin} />} />
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreenWrapper}
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>

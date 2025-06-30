@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import {
   View,
   TextInput,
@@ -11,7 +11,7 @@ import { Colors } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 import { Spacing, BorderRadius, Shadows } from '../../constants/Spacing';
 
-const Input = ({
+const Input = forwardRef(({
   label,
   placeholder,
   value,
@@ -34,20 +34,26 @@ const Input = ({
   inputStyle,
   labelStyle,
   errorStyle,
-  ...props
-}) => {
+  returnKeyType,
+  blurOnSubmit,
+  onSubmitEditing,
+  autoFocus,
+  ...otherProps
+}, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const getContainerStyle = () => {
     const baseStyle = [styles.container];
     
+    if (isFocused) {
+      baseStyle.push(styles.containerFocused);
+    }
+    
     if (error) {
       baseStyle.push(styles.containerError);
     } else if (success) {
       baseStyle.push(styles.containerSuccess);
-    } else if (isFocused) {
-      baseStyle.push(styles.containerFocused);
     }
     
     if (!editable) {
@@ -77,6 +83,13 @@ const Input = ({
 
   const handleBlur = () => {
     setIsFocused(false);
+  };
+
+  const handleChangeText = (text) => {
+    console.log('Input component handleChangeText called:', text, 'placeholder:', placeholder);
+    if (onChangeText) {
+      onChangeText(text);
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -144,11 +157,12 @@ const Input = ({
         {renderLeftIcon()}
         
         <TextInput
+          ref={ref}
           style={[getInputStyle(), inputStyle]}
           placeholder={placeholder}
           placeholderTextColor={Colors.light.textTertiary}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={handleChangeText}
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -159,7 +173,11 @@ const Input = ({
           editable={editable}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          {...props}
+          returnKeyType={returnKeyType || 'default'}
+          blurOnSubmit={blurOnSubmit !== undefined ? blurOnSubmit : false}
+          onSubmitEditing={onSubmitEditing}
+          autoFocus={autoFocus}
+          {...otherProps}
         />
         
         {renderRightIcon()}
@@ -180,7 +198,9 @@ const Input = ({
       )}
     </View>
   );
-};
+});
+
+Input.displayName = 'Input';
 
 const styles = StyleSheet.create({
   container: {

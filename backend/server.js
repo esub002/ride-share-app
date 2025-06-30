@@ -271,14 +271,54 @@ if (io) {
   });
 }
 
-// Start server
+// Start server with port conflict handling
+const startServer = async (initialPort) => {
+  const maxPortAttempts = 10;
+  let currentPort = initialPort;
+  
+  for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
+    try {
+      await new Promise((resolve, reject) => {
+        const serverInstance = server.listen(currentPort, () => {
+          console.log(`🚀 Server running on port ${currentPort}`);
+          console.log(`📱 Health check: http://localhost:${currentPort}/health`);
+          console.log(`🔗 API docs: http://localhost:${currentPort}/api-docs`);
+          console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+          resolve();
+        });
+        
+        serverInstance.on('error', (error) => {
+          if (error.code === 'EADDRINUSE') {
+            console.log(`⚠️ Port ${currentPort} is in use, trying ${currentPort + 1}...`);
+            currentPort++;
+            serverInstance.close();
+            reject(error);
+          } else {
+            reject(error);
+          }
+        });
+      });
+      
+      // If we get here, the server started successfully
+      return;
+      
+    } catch (error) {
+      if (error.code === 'EADDRINUSE' && attempt < maxPortAttempts - 1) {
+        // Continue to next port
+        continue;
+      } else {
+        console.error('❌ Failed to start server:', error.message);
+        process.exit(1);
+      }
+    }
+  }
+  
+  console.error('❌ No available ports found');
+  process.exit(1);
+};
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API docs: http://localhost:${PORT}/api-docs`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+startServer(parseInt(PORT));
 
 module.exports = app;
 

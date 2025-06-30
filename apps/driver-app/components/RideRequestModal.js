@@ -73,12 +73,16 @@ export default function RideRequestModal({
                 showsUserLocation={true}
                 pointerEvents="none"
               >
-                <Marker coordinate={driverLocation} title="Your Location">
-                  <Ionicons name="car" size={28} color="#1976d2" />
-                </Marker>
-                <Marker coordinate={pickupLocation} title="Pickup Location">
-                  <Ionicons name="person" size={28} color="#4CAF50" />
-                </Marker>
+                {driverLocation && typeof driverLocation.latitude === 'number' && typeof driverLocation.longitude === 'number' && (
+                  <Marker coordinate={driverLocation} title="Your Location">
+                    <Ionicons name="car" size={28} color="#1976d2" />
+                  </Marker>
+                )}
+                {pickupLocation && typeof pickupLocation.latitude === 'number' && typeof pickupLocation.longitude === 'number' && (
+                  <Marker coordinate={pickupLocation} title="Pickup Location">
+                    <Ionicons name="person" size={28} color="#4CAF50" />
+                  </Marker>
+                )}
                 <Polyline
                   coordinates={[driverLocation, pickupLocation]}
                   strokeWidth={4}

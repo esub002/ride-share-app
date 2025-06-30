@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -9,9 +9,10 @@ import {
   Platform,
   ScrollView,
   Image,
+  TextInput,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import apiService from "./utils/api";
+import apiService from './utils/api';
 import { Colors } from './constants/Colors';
 import { Typography } from './constants/Typography';
 import { Spacing, BorderRadius, Shadows } from './constants/Spacing';
@@ -29,99 +30,96 @@ export default function LoginScreen({ onLogin }) {
   const [error, setError] = useState("");
   const [isNewUser, setIsNewUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [backendStatus, setBackendStatus] = useState('checking');
+  
+  const phoneInputRef = useRef(null);
+  const otpInputRef = useRef(null);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        console.log('Initializing app...');
+        setBackendStatus('checking');
+        
         // Initialize API service
         await apiService.init();
         
-        // Check if user is already logged in
+        // Test backend connection by checking status
         const status = apiService.getStatus();
-        if (status.hasToken) {
-          // User is already logged in, get profile and proceed
-          try {
-            const profile = await apiService.getDriverProfile();
-            onLogin(apiService.token, profile);
-            return;
-          } catch (error) {
-            // Token is invalid, clear it
-            apiService.clearToken();
-          }
-        }
+        console.log('Backend status:', status);
         
-        setIsLoading(false);
+        if (status.isOnline) {
+          setBackendStatus('connected');
+        } else {
+          setBackendStatus('error');
+        }
       } catch (error) {
-        console.error('App initialization error:', error);
+        console.error('Backend connection error:', error);
+        setBackendStatus('error');
+      } finally {
         setIsLoading(false);
       }
     };
+
     initializeApp();
   }, []);
 
-  const handleSendOTP = async () => {
-    setError("");
-    setLoading(true);
+  const handleSendOTP = useCallback(async () => {
+    if (!isPhoneValid()) return;
+    
+    const currentPhone = phone; // Capture the current phone number
+    
     try {
-      console.log(`📱 Sending OTP to: ${phone}`);
+      console.log('Sending OTP to:', currentPhone);
+      setLoading(true);
+      setError('');
       
-      const result = await apiService.sendOTP(phone);
+      const response = await apiService.sendOTP(currentPhone);
+      console.log('OTP send response:', response);
       
-      if (result.success) {
+      // The API returns { message: "OTP sent successfully", otp: "123456" }
+      // We need to check for the message, not success property
+      if (response.message && response.otp) {
         setStep('otp');
-        setError(`OTP sent! Use code: ${result.otp || '123456'}`); // Show OTP for testing
+        // Ensure phone number is preserved
+        if (phone !== currentPhone) {
+          setPhone(currentPhone);
+        }
+        console.log('OTP sent successfully, moving to OTP step. Phone:', currentPhone);
       } else {
-        setError(result.error || "Failed to send OTP");
+        setError(response.error || 'Failed to send OTP');
       }
     } catch (error) {
-      console.error(`❌ OTP send error:`, error);
-      setError(`Network error: ${error.message}`);
+      console.error('OTP send error:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [phone, isPhoneValid]);
 
-  const handleVerifyOTP = async () => {
-    setError("");
-    setLoading(true);
+  const handleVerifyOTP = useCallback(async () => {
+    if (!isOTPValid()) return;
+    
     try {
-      console.log(`🔐 Verifying OTP for: ${phone}`);
+      console.log('Verifying OTP for:', phone);
+      setLoading(true);
+      setError('');
       
       const loginData = await apiService.loginDriver(phone, otp, name, carInfo);
+      console.log('Login response:', loginData);
       
-      if (loginData.token) {
-        // Success - driver logged in or registered
-        const driverProfile = {
-          id: loginData.driver.id,
-          name: loginData.driver.name,
-          phone: loginData.driver.phone,
-          car: loginData.driver.car_info,
-          email: loginData.driver.email
-        };
-        
-        console.log('✅ Login successful:', driverProfile);
-        onLogin(loginData.token, driverProfile);
+      if (loginData.token && loginData.driver) {
+        onLogin(loginData.token, loginData.driver);
       } else {
-        // Check if this is a new user that needs registration
-        if (loginData.error && loginData.error.includes('Name and car information required')) {
-          setIsNewUser(true);
-          setError("Please provide your details to complete registration");
-        } else {
-          setError(loginData.error || "OTP verification failed");
-        }
+        setError('Invalid OTP or login failed');
       }
     } catch (error) {
-      console.error(`❌ OTP verification error:`, error);
-      
-      // Handle specific error cases
-      if (error.message.includes('Name and car information required')) {
-        setIsNewUser(true);
-        setError("Please provide your details to complete registration");
-      } else {
-        setError(`Verification failed: ${error.message}`);
-      }
+      console.error('Login error:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [phone, otp, name, carInfo, onLogin, isOTPValid]);
 
   const isPhoneValid = () => {
     return phone.length >= 10 && phone.length <= 15;
@@ -161,155 +159,182 @@ export default function LoginScreen({ onLogin }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="never"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={false}
+        bounces={false}
+        nestedScrollEnabled={true}
       >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Ionicons name="car" size={48} color={Colors.light.primary} />
+          </View>
+          <Text style={styles.appTitle}>Driver App</Text>
+          <Text style={styles.appSubtitle}>Professional ride-sharing platform</Text>
+        </View>
+
+        {/* Status Card */}
+        <Card 
+          variant="outlined" 
+          size="small" 
+          style={styles.statusCard}
+          leftIcon="checkmark-circle"
         >
-          {/* Header Section */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="car" size={48} color={Colors.light.primary} />
+          <Text style={styles.statusText}>
+            🔗 Connected to Backend API{'\n'}
+            📱 Login via mobile number and OTP{'\n'}
+            🧪 Test OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
+            📱 Platform: {Platform.OS} | Version: {Platform.Version}
+          </Text>
+        </Card>
+
+        {/* Main Form Card */}
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>
+            {step === 'phone' ? "Welcome Back!" : isNewUser ? "Complete Registration" : "Enter OTP"}
+          </Text>
+          
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
-            <Text style={styles.appTitle}>Driver App</Text>
-            <Text style={styles.appSubtitle}>Professional ride-sharing platform</Text>
-          </View>
+          ) : null}
+          
+          {step === 'phone' && (
+            <View style={styles.formSection}>
+              <Input
+                label="Mobile Number"
+                placeholder="Enter your mobile number"
+                value={phone}
+                onChangeText={(text) => {
+                  console.log('Phone number changed:', text);
+                  setPhone(text);
+                }}
+                keyboardType="phone-pad"
+                maxLength={15}
+                leftIcon="call"
+                required
+                returnKeyType="done"
+                blurOnSubmit={false}
+                autoFocus={false}
+                ref={phoneInputRef}
+              />
+              
+              <Button
+                title="Send OTP"
+                onPress={handleSendOTP}
+                loading={loading}
+                disabled={!isPhoneValid()}
+                icon="send"
+                size="large"
+                style={styles.submitButton}
+              />
 
-          {/* Status Card */}
-          <Card 
-            variant="outlined" 
-            size="small" 
-            style={styles.statusCard}
-            leftIcon="checkmark-circle"
-          >
-            <Text style={styles.statusText}>
-              🔗 Connected to Backend API{'\n'}
-              📱 Login via mobile number and OTP{'\n'}
-              🧪 Test OTP: <Text style={styles.highlightText}>123456</Text>
-            </Text>
-          </Card>
+              {/* Skip Login Button */}
+              <Button
+                title="Skip Login"
+                onPress={() => {
+                  onLogin('mock-token', {
+                    id: 'mock-driver',
+                    name: 'Demo Driver',
+                    phone: '+10000000000',
+                    car: 'Demo Car',
+                    email: 'demo@driver.com',
+                  });
+                }}
+                variant="ghost"
+                size="medium"
+                style={styles.backButton}
+              />
+            </View>
+          )}
 
-          {/* Main Form Card */}
-          <Card 
-            variant="elevated" 
-            size="large" 
-            style={styles.formCard}
-          >
-            <Text style={styles.formTitle}>
-              {step === 'phone' ? "Welcome Back!" : isNewUser ? "Complete Registration" : "Enter OTP"}
-            </Text>
-            
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
-                <Text style={styles.errorText}>{error}</Text>
+          {step === 'otp' && (
+            <View style={styles.formSection}>
+              <View style={styles.phoneDisplay}>
+                <Ionicons name="phone-portrait" size={20} color={Colors.light.icon} />
+                <Text style={styles.phoneText}>OTP sent to: {phone}</Text>
               </View>
-            ) : null}
-            
-            {step === 'phone' && (
-              <View style={styles.formSection}>
-                <Input
-                  label="Mobile Number"
-                  placeholder="Enter your mobile number"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  maxLength={15}
-                  leftIcon="call"
-                  required
-                />
-                
-                <Button
-                  title="Send OTP"
-                  onPress={handleSendOTP}
-                  loading={loading}
-                  disabled={!isPhoneValid()}
-                  icon="send"
-                  size="large"
-                  style={styles.submitButton}
-                />
-              </View>
-            )}
+              
+              <Input
+                label="OTP Code"
+                placeholder="Enter 6-digit OTP"
+                value={otp}
+                onChangeText={setOtp}
+                keyboardType="numeric"
+                maxLength={6}
+                leftIcon="key"
+                required
+                returnKeyType="done"
+                blurOnSubmit={false}
+                ref={otpInputRef}
+              />
 
-            {step === 'otp' && (
-              <View style={styles.formSection}>
-                <View style={styles.phoneDisplay}>
-                  <Ionicons name="phone-portrait" size={20} color={Colors.light.icon} />
-                  <Text style={styles.phoneText}>OTP sent to: {phone}</Text>
+              {isNewUser && (
+                <View style={styles.registrationSection}>
+                  <Text style={styles.helpText}>
+                    Please provide your details to complete registration
+                  </Text>
+                  
+                  <Input
+                    label="Full Name"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChangeText={setName}
+                    autoCapitalize="words"
+                    leftIcon="person"
+                    required
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                  />
+                  
+                  <Input
+                    label="Vehicle Information"
+                    placeholder="e.g., Toyota Prius 2020"
+                    value={carInfo}
+                    onChangeText={setCarInfo}
+                    autoCapitalize="words"
+                    leftIcon="car"
+                    required
+                    returnKeyType="done"
+                    blurOnSubmit={false}
+                  />
                 </View>
-                
-                <Input
-                  label="OTP Code"
-                  placeholder="Enter 6-digit OTP"
-                  value={otp}
-                  onChangeText={setOtp}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  leftIcon="key"
-                  required
-                />
+              )}
 
-                {isNewUser && (
-                  <View style={styles.registrationSection}>
-                    <Text style={styles.helpText}>
-                      Please provide your details to complete registration
-                    </Text>
-                    
-                    <Input
-                      label="Full Name"
-                      placeholder="Enter your full name"
-                      value={name}
-                      onChangeText={setName}
-                      autoCapitalize="words"
-                      leftIcon="person"
-                      required
-                    />
-                    
-                    <Input
-                      label="Vehicle Information"
-                      placeholder="e.g., Toyota Prius 2020"
-                      value={carInfo}
-                      onChangeText={setCarInfo}
-                      autoCapitalize="words"
-                      leftIcon="car"
-                      required
-                    />
-                  </View>
-                )}
+              <Button
+                title={isNewUser ? "Complete Registration" : "Verify OTP"}
+                onPress={handleVerifyOTP}
+                loading={loading}
+                disabled={!isOTPValid() || (isNewUser && !isRegistrationValid())}
+                icon="checkmark"
+                size="large"
+                style={styles.submitButton}
+              />
 
-                <Button
-                  title={isNewUser ? "Complete Registration" : "Verify OTP"}
-                  onPress={handleVerifyOTP}
-                  loading={loading}
-                  disabled={!isOTPValid() || (isNewUser && !isRegistrationValid())}
-                  icon="checkmark"
-                  size="large"
-                  style={styles.submitButton}
-                />
+              <Button
+                title="← Back to Phone"
+                onPress={resetForm}
+                variant="ghost"
+                size="medium"
+                style={styles.backButton}
+              />
+            </View>
+          )}
+        </View>
 
-                <Button
-                  title="← Back to Phone"
-                  onPress={resetForm}
-                  variant="ghost"
-                  size="medium"
-                  style={styles.backButton}
-                />
-              </View>
-            )}
-          </Card>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Secure • Fast • Reliable
-            </Text>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Secure • Fast • Reliable
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -397,6 +422,10 @@ const styles = StyleSheet.create({
   
   formCard: {
     marginBottom: Spacing.xl,
+    backgroundColor: Colors.light.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    ...Shadows.lg,
   },
   
   formTitle: {
@@ -476,6 +505,68 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.light.textTertiary,
     textAlign: 'center',
+  },
+  
+  testFocusButton: {
+    marginRight: Spacing.base,
+  },
+  
+  testInputContainer: {
+    marginBottom: Spacing.xl,
+  },
+  
+  testInputLabel: {
+    ...Typography.body2,
+    color: Colors.light.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  
+  testInput: {
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: BorderRadius.lg,
+  },
+  
+  minimalTestInput: {
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: BorderRadius.lg,
+  },
+  
+  simpleTestContainer: {
+    marginBottom: Spacing.xl,
+  },
+  
+  simpleTestLabel: {
+    ...Typography.body2,
+    color: Colors.light.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  
+  simpleTestInput: {
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: BorderRadius.lg,
+  },
+  
+  directInputContainer: {
+    marginBottom: Spacing.xl,
+  },
+  
+  directInputLabel: {
+    ...Typography.body2,
+    color: Colors.light.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  
+  directInput: {
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: BorderRadius.lg,
   },
 });
   

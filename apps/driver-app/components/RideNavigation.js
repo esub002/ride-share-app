@@ -212,7 +212,7 @@ export default function RideNavigation({ ride, onComplete, onCancel }) {
         followsUserLocation
       >
         {/* Current location marker */}
-        {currentLocation && (
+        {currentLocation && typeof currentLocation.latitude === 'number' && typeof currentLocation.longitude === 'number' && (
           <Marker
             coordinate={currentLocation}
             title="Your Location"
@@ -222,20 +222,24 @@ export default function RideNavigation({ ride, onComplete, onCancel }) {
         )}
 
         {/* Pickup location marker */}
-        <Marker
-          coordinate={pickupLocation}
-          title="Pickup Location"
-          description="Pick up the rider here"
-          pinColor="#4CAF50"
-        />
+        {pickupLocation && typeof pickupLocation.latitude === 'number' && typeof pickupLocation.longitude === 'number' && (
+          <Marker
+            coordinate={pickupLocation}
+            title="Pickup Location"
+            description="Pick up the rider here"
+            pinColor="#4CAF50"
+          />
+        )}
 
         {/* Dropoff location marker */}
-        <Marker
-          coordinate={dropoffLocation}
-          title="Dropoff Location"
-          description="Drop off the rider here"
-          pinColor="#FF5722"
-        />
+        {dropoffLocation && typeof dropoffLocation.latitude === 'number' && typeof dropoffLocation.longitude === 'number' && (
+          <Marker
+            coordinate={dropoffLocation}
+            title="Dropoff Location"
+            description="Drop off the rider here"
+            pinColor="#FF5722"
+          />
+        )}
 
         {/* Route line */}
         {routeCoordinates.length > 0 && (

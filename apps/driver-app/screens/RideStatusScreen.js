@@ -34,7 +34,7 @@ function NotificationBanner({ message, onClose }) {
   );
 }
 
-export default function RideStatusScreen({ ride, userId }) {
+export default function RideStatusScreen({ ride, userId, navigation }) {
   const [status, setStatus] = useState(ride.status);
   const [driver, setDriver] = useState(null);
   const [driverLocation, setDriverLocation] = useState(null);
@@ -127,6 +127,18 @@ export default function RideStatusScreen({ ride, userId }) {
 
   const closeNotification = () => setNotification('');
 
+  const navigateToEnhancedNavigation = () => {
+    if (navigation) {
+      navigation.navigate('EnhancedNavigation', {
+        ride: ride,
+        onRideComplete: (completedRide) => {
+          Alert.alert('Success', 'Ride completed successfully!');
+          navigation.goBack();
+        }
+      });
+    }
+  };
+
   if (loading) {
     return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" /><Text>Loading ride info...</Text></View>;
   }
@@ -138,6 +150,18 @@ export default function RideStatusScreen({ ride, userId }) {
     <View style={{ padding: 20 }}>
       <NotificationBanner message={notification} onClose={closeNotification} />
       <Text style={{ fontSize: 24 }}>Ride Status: {status}</Text>
+      
+      {/* Enhanced Navigation Button */}
+      {navigation && (
+        <TouchableOpacity 
+          style={styles.enhancedNavigationButton}
+          onPress={navigateToEnhancedNavigation}
+        >
+          <Ionicons name="navigate" size={20} color="#fff" />
+          <Text style={styles.enhancedNavigationButtonText}>Enhanced Navigation</Text>
+        </TouchableOpacity>
+      )}
+      
       {driver && (
         <View>
           <Text>Driver: {driver.name}</Text>
@@ -157,12 +181,16 @@ export default function RideStatusScreen({ ride, userId }) {
                 }}
                 customMapStyle={customMapStyle}
               >
-                <Marker coordinate={riderLocation} title="Rider">
-                  <RiderMarker />
-                </Marker>
-                <Marker coordinate={driverLocation} title="Driver">
-                  <DriverMarker />
-                </Marker>
+                {riderLocation && typeof riderLocation.latitude === 'number' && typeof riderLocation.longitude === 'number' && (
+                  <Marker coordinate={riderLocation} title="Rider">
+                    <RiderMarker />
+                  </Marker>
+                )}
+                {driverLocation && typeof driverLocation.latitude === 'number' && typeof driverLocation.longitude === 'number' && (
+                  <Marker coordinate={driverLocation} title="Driver">
+                    <DriverMarker />
+                  </Marker>
+                )}
                 <MapViewDirections
                   origin={driverLocation}
                   destination={riderLocation}
@@ -260,6 +288,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     alignSelf: 'flex-end',
     marginTop: 2,
+  },
+  enhancedNavigationButton: {
+    backgroundColor: '#1E90FF',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  enhancedNavigationButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
 });
 

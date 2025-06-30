@@ -2,8 +2,78 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import offlineManager from './offlineManager';
 import performanceOptimizer from './performanceOptimizer';
 
-// Updated to use your local backend
-export const API_BASE_URL = "http://10.1.10.243:3000"; // Change to your computer's IP if needed
+// Backend URL configuration - supports multiple fallback URLs
+const BACKEND_URLS = [
+  "http://localhost:3003",  // Backend is running on 3003
+  "http://localhost:3000",
+  "http://localhost:3001", 
+  "http://localhost:3002",
+  "http://localhost:3004",
+  "http://localhost:3005",
+  "http://10.1.10.243:3003",
+  "http://10.1.10.243:3000",
+  "http://127.0.0.1:3003",
+  "http://127.0.0.1:3000"
+];
+
+// Try to find the working backend URL
+let API_BASE_URL = BACKEND_URLS[0];
+
+// Function to test backend connectivity
+async function testBackendConnection(url) {
+  try {
+    console.log(`🔍 Testing backend connection: ${url}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+    
+    const response = await fetch(`${url}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      console.log(`✅ Backend connection successful: ${url}`);
+      return true;
+    } else {
+      console.log(`❌ Backend connection failed: ${url} (status: ${response.status})`);
+      return false;
+    }
+  } catch (error) {
+    console.log(`❌ Backend connection error: ${url} - ${error.message}`);
+    return false;
+  }
+}
+
+// Function to find working backend
+async function findWorkingBackend() {
+  console.log('🔍 Searching for available backend...');
+  
+  for (const url of BACKEND_URLS) {
+    console.log(`   Testing: ${url}`);
+    const isWorking = await testBackendConnection(url);
+    if (isWorking) {
+      console.log(`✅ Backend found: ${url}`);
+      return url;
+    }
+  }
+  
+  console.log('⚠️ No backend found, using fallback URL');
+  return BACKEND_URLS[0];
+}
+
+// Initialize backend URL
+(async () => {
+  API_BASE_URL = await findWorkingBackend();
+})();
+
+// Export the current API base URL
+export { API_BASE_URL };
 
 // Mock data for when backend is not available
 export const MOCK_DATA = {
@@ -141,25 +211,35 @@ class ApiService {
     this.retryAttempts = 3;
     this.retryDelay = 1000;
     this.socket = null;
+    this.connectedBackend = null;
+    
+    console.log(`🚀 API Service initialized with base URL: ${this.baseURL}`);
   }
 
-  // Initialize API service
   async init() {
     try {
-      this.token = await AsyncStorage.getItem('authToken');
-      this.isOnline = offlineManager.isDeviceOnline();
+      console.log('🔧 Initializing API Service...');
       
-      // Listen for network changes
-      offlineManager.addListener(({ isOnline }) => {
-        this.isOnline = isOnline;
-      });
-
-      // Initialize Socket.IO if token exists
-      if (this.token) {
-        this.initializeSocket();
+      // Find working backend
+      this.connectedBackend = await findWorkingBackend();
+      this.baseURL = `${this.connectedBackend}/api`;
+      
+      console.log(`✅ API Service connected to: ${this.connectedBackend}`);
+      
+      // Load stored token
+      const storedToken = await AsyncStorage.getItem('driver_token');
+      if (storedToken) {
+        this.token = storedToken;
+        console.log('🔑 Loaded stored authentication token');
       }
+      
+      // Initialize socket connection
+      this.initializeSocket();
+      
+      return true;
     } catch (error) {
-      console.error('API initialization error:', error);
+      console.error('❌ API Service initialization failed:', error);
+      return false;
     }
   }
 
@@ -248,58 +328,39 @@ class ApiService {
   // Make API request with error handling and offline support
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    const config = {
-      method: 'GET',
-      headers: this.getHeaders(),
-      ...options,
-    };
-
-    // If offline, return cached data or mock data
-    if (!this.isOnline) {
-      console.log('Device offline, using cached/mock data for:', endpoint);
-      
-      // Try to get cached data first
-      const cachedData = await offlineManager.getCachedApiResponse(endpoint);
-      if (cachedData) {
-        return { success: true, data: cachedData, cached: true };
-      }
-      
-      // Return mock data as fallback
-      const mockData = this.getMockData(endpoint);
-      return { success: true, data: mockData, mock: true };
-    }
-
-    // Retry logic for failed requests
+    const headers = this.getHeaders();
+    
+    console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+    
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
-        console.log(`🌐 API Request (attempt ${attempt}): ${config.method} ${url}`);
-        
-        const response = await fetch(url, config);
-        const data = await response.json();
-        
-        console.log(`✅ API Response: ${response.status}`, data);
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            ...headers,
+            ...options.headers,
+          },
+        });
         
         if (response.ok) {
-          // Cache successful responses
-          await offlineManager.cacheApiResponse(endpoint, data);
-          return { success: true, data };
+          const data = await response.json();
+          console.log(`✅ API Request successful: ${endpoint}`);
+          return data;
         } else {
-          // Handle specific error cases
-          if (response.status === 401) {
-            // Token expired or invalid
-            this.clearToken();
-            throw new Error('Authentication failed. Please login again.');
+          console.log(`❌ API Request failed (attempt ${attempt}): ${endpoint} - Status: ${response.status}`);
+          
+          if (attempt === this.retryAttempts) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
           
-          throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
         }
       } catch (error) {
-        console.error(`❌ API Request failed (attempt ${attempt}):`, error);
+        console.log(`❌ API Request error (attempt ${attempt}): ${endpoint} - ${error.message}`);
         
         if (attempt === this.retryAttempts) {
-          // Last attempt failed, return mock data
-          const mockData = this.getMockData(endpoint);
-          return { success: false, data: mockData, error: error.message, mock: true };
+          throw error;
         }
         
         // Wait before retrying
@@ -330,9 +391,10 @@ class ApiService {
       body: JSON.stringify(body)
     });
 
-    if (result.success && result.data.token) {
-      this.setToken(result.data.token);
-      return result.data;
+    // Backend returns { token: "...", driver: { id, name, phone, car_info } }
+    if (result.token && result.driver) {
+      this.setToken(result.token);
+      return result;
     }
     
     throw new Error(result.error || 'Login failed');
@@ -344,8 +406,13 @@ class ApiService {
       body: JSON.stringify({ phone })
     });
 
-    if (result.success) {
-      return result.data;
+    // Backend returns { message: "OTP sent successfully", otp: "123456" }
+    if (result.message && result.otp) {
+      return {
+        success: true,
+        message: result.message,
+        otp: result.otp
+      };
     }
     
     throw new Error(result.error || 'Failed to send OTP');
@@ -515,4 +582,4 @@ class ApiService {
 // Create singleton instance
 const apiService = new ApiService();
 
-export default apiService; 
+export default apiService;
