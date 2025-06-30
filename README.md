@@ -14,6 +14,18 @@
 
 A full-stack real-time ride sharing platform.
 
+## 🆕 Recent Enhancements (2025)
+- **Driver App:**
+  - Robust map marker validation (prevents AIRMapMarker errors)
+  - Enhanced navigation and map integration (Google Maps/Mapbox, route/traffic visualization)
+  - Improved real-time ride request handling (reliable sockets, notifications, request queue)
+  - Login/OTP fixes and 'Skip Login' for dev/testing
+  - See `apps/driver-app/README.md` for full details
+- **Backend:**
+  - Mock database fallbacks for local/dev
+  - Improved backend startup scripts and port handling
+  - Better error handling for PostgreSQL connection/auth
+
 ## Features
 
 - Node.js/Express backend (REST API, Socket.IO)
