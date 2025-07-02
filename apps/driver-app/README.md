@@ -324,3 +324,82 @@ For support and questions:
 ---
 
 **Built with ❤️ using React Native and Expo**
+
+## 🧩 Main Components Overview
+
+| Component Name                | Purpose/Feature                        |
+|------------------------------|----------------------------------------|
+| AdvancedSafety.js             | Advanced safety features (SOS, trip share, etc.) |
+| AndroidSpecificFeatures.js    | Android-only permissions & features    |
+| Collapsible.tsx               | Collapsible UI sections                |
+| CustomerCommunication.js      | In-app chat and call with rider        |
+| DriverAnalytics.js            | Driver analytics and insights          |
+| EarningsFinance.js            | Earnings, payments, and transactions   |
+| EnhancedMap.js                | Map and navigation integration         |
+| EnhancedMapComponent.js       | Alternative map/navigation component   |
+| EnhancedRealTimeRideRequests.js| Real-time ride request queue           |
+| EnhancedRideRequestModal.js   | Modal for incoming ride requests       |
+| EnhancedRideRequests.js       | Enhanced ride request management       |
+| ErrorBoundary.js              | Global error boundary                  |
+| LoadingSpinner.js             | Loading indicator                      |
+| LocationTracker.js            | Location tracking utility              |
+| NavControls.js                | Navigation controls UI                 |
+| NavigationControls.js         | Navigation controls (alt)              |
+| OfflineIndicator.js           | Shows offline/online status            |
+| ParallaxScrollView.tsx        | Parallax scroll UI                     |
+| Profile.js                    | Driver profile management              |
+| RealTimeRideRequests.js       | Real-time ride requests (basic)        |
+| RideManagement.js             | Ride management dashboard              |
+| RideNavigation.js             | Ride navigation logic                  |
+| SafetyCommunication.js        | Safety features and comms              |
+| SafetyFeatures.js             | Safety settings and contacts           |
+| Settings.js                   | App settings                           |
+| Theme.js                      | Theme customization                    |
+| TripHistory.js                | Trip/ride history                      |
+| VoiceCommands.js              | Voice command features                 |
+| Wallet.js                     | Wallet and payment methods             |
+| ui/                           | Reusable UI components (Button, Card)  |
+
+## 🛠️ Android/iOS Build Troubleshooting
+
+- **AndroidX/Support Library Conflicts:**
+  - If you see duplicate class errors, check your `build.gradle` for legacy `com.android.support:*` dependencies and remove them.
+  - Add `packagingOptions` excludes for any duplicate META-INF errors.
+- **Manifest Merger Errors:**
+  - Ensure `tools:replace` and `android:appComponentFactory` are set in your `AndroidManifest.xml`.
+- **Gradle Sync Issues:**
+  - Always open the `android/` folder in Android Studio, not the project root.
+  - Use the Gradle panel to clean/build if menu options are missing.
+- **Expo/React Native Issues:**
+  - If you see Metro bundler errors, stop all Metro processes and restart with `npx expo start`.
+- **General:**
+  - If stuck, delete `node_modules`, run `npm install`, and try again.
+  - For persistent build issues, try EAS Build (`npm run build:android:dev`).
+
+## 🧑‍💻 How to Contribute Code
+
+1. Fork the repository on GitHub.
+2. Create a new branch for your feature or fix.
+3. Make your changes and add tests if needed.
+4. Run the app and verify your changes.
+5. Commit with a descriptive message.
+6. Push to your fork and open a pull request.
+7. Describe your changes and reference any issues.
+
+## 🗂️ Where to Find What (Contributor Quick Reference)
+
+| Folder/File         | Purpose/Contents                                 |
+|--------------------|--------------------------------------------------|
+| App.js             | Main app entry, navigation, and context setup    |
+| components/        | All major UI and feature components              |
+| components/ui/     | Reusable UI elements (Button, Card, etc.)        |
+| screens/           | Screen-level components (pages/views)            |
+| utils/             | Utility functions and services (API, socket, etc.)|
+| auth/              | Authentication context and logic                 |
+| assets/            | Images, icons, and fonts                         |
+| constants/         | App-wide constants (colors, spacing, typography) |
+| android/           | Native Android project (for builds)              |
+| app.json           | Expo/React Native app configuration              |
+| README.md          | Project documentation                            |
+
+---

@@ -1,21 +1,94 @@
 {
   "cli": {
     "version": ">= 16.13.1",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "requireCommit": true
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleDebug",
+        "buildType": "apk",
+        "env": {
+          "NODE_ENV": "development",
+          "EXPO_PUBLIC_API_URL": "http://localhost:3003"
+        }
+      },
+      "env": {
+        "NODE_ENV": "development"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "env": {
+          "NODE_ENV": "staging",
+          "EXPO_PUBLIC_API_URL": "https://staging-api.ridesharapp.com"
+        }
+      },
+      "env": {
+        "NODE_ENV": "staging"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease",
+        "env": {
+          "NODE_ENV": "production",
+          "EXPO_PUBLIC_API_URL": "https://api.ridesharapp.com"
+        }
+      },
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "env": {
+          "NODE_ENV": "staging",
+          "EXPO_PUBLIC_API_URL": "https://staging-api.ridesharapp.com"
+        }
+      },
+      "env": {
+        "NODE_ENV": "staging"
+      }
+    },
+    "testing": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug",
+        "env": {
+          "NODE_ENV": "testing",
+          "EXPO_PUBLIC_API_URL": "http://localhost:3003"
+        }
+      },
+      "env": {
+        "NODE_ENV": "testing"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
+      }
+    },
+    "staging": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    }
   }
 }

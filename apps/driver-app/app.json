@@ -33,6 +33,7 @@
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
       "buildToolsVersion": "34.0.0",
+      "minSdkVersion": 24,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyAolSa4PNw-bIf_8DkYseWdFBgDTJnvyZI"
@@ -61,7 +62,15 @@
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "MODIFY_AUDIO_SETTINGS",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "REQUEST_INSTALL_PACKAGES",
+        "INSTALL_PACKAGES",
+        "DELETE_PACKAGES",
+        "CLEAR_APP_CACHE",
+        "WRITE_SECURE_SETTINGS",
+        "ACCESS_NOTIFICATION_POLICY",
+        "BIND_NOTIFICATION_LISTENER_SERVICE",
+        "BIND_ACCESSIBILITY_SERVICE"
       ],
       "package": "com.esubvali.driverapp",
       "versionCode": 1,
@@ -75,12 +84,26 @@
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "android.intent.action.MAIN",
+          "category": ["android.intent.category.LAUNCHER"]
+        },
+        {
+          "action": "android.intent.action.BOOT_COMPLETED",
+          "category": ["android.intent.category.DEFAULT"]
         }
       ],
       "softwareKeyboardLayoutMode": "pan",
       "allowBackup": true,
       "fullBackupContent": true,
-      "dataExtractionRules": "./android/app/src/main/res/xml/data_extraction_rules.xml"
+      "dataExtractionRules": "./android/app/src/main/res/xml/data_extraction_rules.xml",
+      "usesCleartextTraffic": false,
+      "networkSecurityConfig": "./android/app/src/main/res/xml/network_security_config.xml",
+      "allowNativeHeapPointerTagging": false,
+      "enableDangerousExperimentalBuildFeatures": {
+        "enableDangerousExperimentalBuildFeatures": false
+      }
     },
     "web": {
       "bundler": "metro",
@@ -97,13 +120,23 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      // [
-      //   "expo-notifications",
-      //   {
-      //     "icon": "./assets/images/notification-icon.png",
-      //     "color": "#ffffff"
-      //   }
-      // ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app needs access to location to provide ride services and safety features.",
+          "locationAlwaysPermission": "This app needs access to location in the background for ride tracking and safety features.",
+          "locationWhenInUsePermission": "This app needs access to location to provide ride services and safety features.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
       "expo-router"
     ],
     "experiments": {
