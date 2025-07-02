@@ -43,6 +43,19 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
 
+      - name: Build and push rider-app image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/rider-app
+          file: ./apps/rider-app/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            NODE_ENV=production
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:${{ github.sha }}
+
       - name: Run backend tests
         run: |
           docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest npm test
@@ -65,6 +78,24 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Tag current backend image as previous
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest || true
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:previous || true
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:previous || true
+
+      - name: Tag current frontend image as previous
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest || true
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:previous || true
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:previous || true
+
+      - name: Tag current rider-app image as previous
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:latest || true
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:previous || true
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:previous || true
 
       - name: Deploy to server
         run: |
@@ -95,4 +126,18 @@ jobs:
           from: ${{ secrets.EMAIL_USER }}
           body: |
             The deployment failed for ${{ github.repository }} on ${{ github.ref }}.
-            Please check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} 
+            Please check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, rolling back to previous version..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd /path/to/your/app &&
+            docker compose down &&
+            docker compose pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:previous ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:previous ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:previous &&
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:previous ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest &&
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:previous ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest &&
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:previous ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rider-app:latest &&
+            docker compose up -d --remove-orphans
+          " 
