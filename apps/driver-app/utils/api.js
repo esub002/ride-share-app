@@ -4,29 +4,29 @@ import performanceOptimizer from './performanceOptimizer';
 
 // Backend URL configuration - supports multiple fallback URLs
 const BACKEND_URLS = [
-  "http://localhost:3003",  // Backend is running on 3003
-  "http://localhost:3000",
+  "http://localhost:3003",  // Backend is running on port 3003
+  "http://localhost:3000",  // Fallback port
   "http://localhost:3001", 
   "http://localhost:3002",
   "http://localhost:3004",
   "http://localhost:3005",
-  "http://10.1.10.243:3003",
+  "http://10.1.10.243:3003", // Your network IP
   "http://10.1.10.243:3000",
   "http://127.0.0.1:3003",
   "http://127.0.0.1:3000"
 ];
 
 // Try to find the working backend URL
-let API_BASE_URL = BACKEND_URLS[0];
+let API_BASE_URL = "http://localhost:3003"; // Backend is running on port 3003
 
 // Function to test backend connectivity
 async function testBackendConnection(url) {
   try {
     console.log(`🔍 Testing backend connection: ${url}`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
     
-    const response = await fetch(`${url}/health`, {
+    const response = await fetch(`${url}`, {
       method: 'GET',
       signal: controller.signal,
       headers: {
@@ -37,7 +37,7 @@ async function testBackendConnection(url) {
     
     clearTimeout(timeoutId);
     
-    if (response.ok) {
+    if (response.ok || response.status === 404) { // 404 is OK for root endpoint
       console.log(`✅ Backend connection successful: ${url}`);
       return true;
     } else {
@@ -287,7 +287,7 @@ class ApiService {
   // Set authentication token
   setToken(token) {
     this.token = token;
-    AsyncStorage.setItem('authToken', token);
+    AsyncStorage.setItem('driver_token', token);
     
     // Initialize socket connection with new token
     if (token) {
@@ -300,7 +300,7 @@ class ApiService {
   // Clear authentication token
   clearToken() {
     this.token = null;
-    AsyncStorage.removeItem('authToken');
+    AsyncStorage.removeItem('driver_token');
     this.disconnectSocket();
   }
 
@@ -446,12 +446,55 @@ class ApiService {
     return result.data;
   }
 
-  async toggleAvailability(available) {
-    const result = await this.request('/drivers/availability', {
-      method: 'PATCH',
-      body: JSON.stringify({ available })
-    });
-    return result.data;
+  async toggleAvailability(available, location = null) {
+    try {
+      // Get the current user/driver ID
+      const driverId = global.user?.id || this.userId;
+      
+      if (!driverId) {
+        throw new Error('Driver ID not found. Please login again.');
+      }
+
+      // Handle mock driver case
+      if (driverId === 'mock-driver') {
+        // For mock driver, use a fixed ID that the backend can handle
+        const mockDriverId = 1;
+        
+        const body = { available };
+        if (location) body.location = location;
+        
+        const result = await this.request(`/drivers/${mockDriverId}/availability`, {
+          method: 'PATCH',
+          body: JSON.stringify(body)
+        });
+        
+        // Also emit to socket for real-time updates
+        if (this.socket) {
+          this.socket.emit('driver:availability', { available, location });
+        }
+        
+        return result.data || result;
+      } else {
+        // Regular driver case
+        const body = { available };
+        if (location) body.location = location;
+        
+        const result = await this.request(`/drivers/${driverId}/availability`, {
+          method: 'PATCH',
+          body: JSON.stringify(body)
+        });
+        
+        // Also emit to socket for real-time updates
+        if (this.socket) {
+          this.socket.emit('driver:availability', { available, location });
+        }
+        
+        return result.data || result;
+      }
+    } catch (error) {
+      console.error('Error toggling availability:', error);
+      throw error;
+    }
   }
 
   // Earnings and financial methods

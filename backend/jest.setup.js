@@ -14,6 +14,55 @@ const mockPool = {
 // Mock the database module
 jest.mock('./db', () => mockPool);
 
+// Mock Redis/ioredis
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    connect: jest.fn().mockResolvedValue(true),
+    disconnect: jest.fn().mockResolvedValue(true),
+    setex: jest.fn().mockResolvedValue('OK'),
+    get: jest.fn().mockResolvedValue(null),
+    del: jest.fn().mockResolvedValue(1),
+    keys: jest.fn().mockResolvedValue([]),
+    info: jest.fn().mockResolvedValue('redis_version:6.0.0'),
+    ping: jest.fn().mockResolvedValue('PONG')
+  }));
+});
+
+// Mock the cache utility
+jest.mock('./utils/cache', () => ({
+  CacheManager: jest.fn().mockImplementation(() => ({
+    connect: jest.fn().mockResolvedValue(true),
+    disconnect: jest.fn().mockResolvedValue(true),
+    cacheApiResponse: jest.fn().mockResolvedValue(true),
+    getApiResponse: jest.fn().mockResolvedValue(null),
+    cacheQueryResult: jest.fn().mockResolvedValue(true),
+    getQueryResult: jest.fn().mockResolvedValue(null),
+    setSession: jest.fn().mockResolvedValue(true),
+    getSession: jest.fn().mockResolvedValue(null),
+    deleteSession: jest.fn().mockResolvedValue(true),
+    cacheRealtimeData: jest.fn().mockResolvedValue(true),
+    getRealtimeData: jest.fn().mockResolvedValue(null),
+    cacheUserData: jest.fn().mockResolvedValue(true),
+    getUserData: jest.fn().mockResolvedValue(null),
+    cacheDriverData: jest.fn().mockResolvedValue(true),
+    getDriverData: jest.fn().mockResolvedValue(null),
+    cacheRideData: jest.fn().mockResolvedValue(true),
+    getRideData: jest.fn().mockResolvedValue(null),
+    cacheLocationData: jest.fn().mockResolvedValue(true),
+    getLocationData: jest.fn().mockResolvedValue(null),
+    invalidatePattern: jest.fn().mockResolvedValue(true),
+    invalidateUser: jest.fn().mockResolvedValue(true),
+    invalidateDriver: jest.fn().mockResolvedValue(true),
+    invalidateRide: jest.fn().mockResolvedValue(true),
+    getStats: jest.fn().mockResolvedValue({}),
+    healthCheck: jest.fn().mockResolvedValue(true),
+    isConnected: true
+  })),
+  cacheMiddleware: jest.fn().mockImplementation(() => (req, res, next) => next()),
+  withQueryCache: jest.fn().mockImplementation((query, params, ttl) => Promise.resolve(null))
+}));
+
 // Mock Socket.IO
 jest.mock('socket.io', () => {
   return {

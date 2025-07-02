@@ -99,6 +99,25 @@ const authMiddleware = (requiredRole = null) => {
         });
       }
       
+      // Handle mock token for development
+      if (token === 'mock-token') {
+        // Create a mock user for development
+        req.user = {
+          id: 'mock-driver',
+          email: 'demo@driver.com',
+          role: 'driver',
+          permissions: ['driver:read', 'driver:write']
+        };
+        
+        req.token = {
+          original: token,
+          decoded: { userId: 'mock-driver', role: 'driver' },
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 minutes from now
+        };
+        
+        return next();
+      }
+      
       // Check if token is blacklisted
       if (isTokenBlacklisted(token)) {
         return res.status(401).json({ 

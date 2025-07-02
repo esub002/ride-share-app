@@ -1,0 +1,14 @@
+name: Error Spike
+index: docker-*
+type: frequency
+num_events: 5
+timeframe:
+  minutes: 1
+filter:
+- query:
+    query_string:
+      query: "level:ERROR OR level:error"
+alert:
+- "email"
+email:
+- "your-alert-email@domain.com" 

@@ -4,7 +4,7 @@
  */
 
 const Redis = require('ioredis');
-const logger = require('./logger');
+const { logger } = require('./logger');
 
 class CacheManager {
   constructor() {

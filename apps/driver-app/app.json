@@ -27,6 +27,12 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "allowBackup": true,
+      "enableProguardInReleaseBuilds": true,
+      "enableShrinkResourcesInReleaseBuilds": true,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "buildToolsVersion": "34.0.0",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyAolSa4PNw-bIf_8DkYseWdFBgDTJnvyZI"
@@ -45,20 +51,36 @@
         "RECEIVE_BOOT_COMPLETED",
         "INTERNET",
         "ACCESS_NETWORK_STATE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "READ_CONTACTS",
-        "WRITE_CONTACTS",
-        "VIBRATE",
-        "WAKE_LOCK",
-        "RECEIVE_BOOT_COMPLETED",
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_STATE",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "SYSTEM_ALERT_WINDOW",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "MODIFY_AUDIO_SETTINGS",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ],
-      "package": "com.esubvali.driverapp"
+      "package": "com.esubvali.driverapp",
+      "versionCode": 1,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "driverapp"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
+      "softwareKeyboardLayoutMode": "pan",
+      "allowBackup": true,
+      "fullBackupContent": true,
+      "dataExtractionRules": "./android/app/src/main/res/xml/data_extraction_rules.xml"
     },
     "web": {
       "bundler": "metro",
@@ -75,13 +97,13 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#ffffff"
-        }
-      ],
+      // [
+      //   "expo-notifications",
+      //   {
+      //     "icon": "./assets/images/notification-icon.png",
+      //     "color": "#ffffff"
+      //   }
+      // ],
       "expo-router"
     ],
     "experiments": {

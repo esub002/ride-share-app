@@ -1,0 +1,240 @@
+{
+  "info": {
+    "name": "Driver App API Testing",
+    "description": "Collection for testing Driver App authentication and ride requests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3003",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/driver/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "driver", "send-otp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP and Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', response.token);",
+                  "    console.log('Token saved:', response.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\",\n  \"otp\": \"123456\",\n  \"name\": \"Test Driver\",\n  \"car_info\": \"Toyota Camry 2020\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/driver/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "driver", "verify-otp"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ride Management",
+      "item": [
+        {
+          "name": "Create Ride Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickup_location\": \"123 Main St, Downtown\",\n  \"dropoff_location\": \"456 Oak Ave, Uptown\",\n  \"rider_id\": 1,\n  \"driver_id\": 1,\n  \"fare\": 25.50,\n  \"pickup_lat\": 40.7128,\n  \"pickup_lng\": -74.0060,\n  \"dropoff_lat\": 40.7589,\n  \"dropoff_lng\": -73.9851\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/rides",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "rides"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Rides",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rides?status=requested",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "rides"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "requested"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Ride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ride_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/rides/1/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "rides", "1", "accept"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Ride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ride_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/rides/1/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "rides", "1", "complete"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Driver Profile",
+      "item": [
+        {
+          "name": "Get Driver Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/drivers/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "drivers", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Driver Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/drivers/location",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "drivers", "location"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+} 

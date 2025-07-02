@@ -3,7 +3,7 @@
  * Provides custom error classes, centralized error handling, and detailed logging
  */
 
-const logger = require('./logger');
+const { logger } = require('./logger');
 
 // Custom Error Classes
 class AppError extends Error {

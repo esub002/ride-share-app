@@ -11,7 +11,18 @@
     "web": "expo start --web",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
-    "preview": "expo start --tunnel"
+    "preview": "expo start --tunnel",
+    "android:dev": "node scripts/android-build.js development",
+    "android:preview": "node scripts/android-build.js preview",
+    "android:prod": "node scripts/android-build.js production",
+    "android:local": "node scripts/android-build.js local",
+    "android:clean": "node scripts/android-build.js clean",
+    "android:info": "node scripts/android-build.js info",
+    "build:android:dev": "eas build --platform android --profile development",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android:prod": "eas build --platform android --profile production",
+    "submit:android": "eas submit --platform android",
+    "submit:android:preview": "eas submit --platform android --profile preview"
   },
   "dependencies": {
     "@expo/config-plugins": "~10.0.0",

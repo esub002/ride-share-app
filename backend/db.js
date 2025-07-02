@@ -13,7 +13,8 @@ class MockDatabase {
         { id: 2, name: 'John Driver', email: 'driver@test.com', phone: '+1234567891', car_info: 'Toyota Prius', verified: true, password: '$2b$10$mock.hash' }
       ],
       drivers: [
-        { id: 1, name: 'John Driver', email: 'driver@test.com', phone: '+1234567891', car_info: 'Toyota Prius', verified: true, available: true, latitude: 37.7749, longitude: -122.4194 }
+        { id: 1, name: 'John Driver', email: 'driver@test.com', phone: '+1234567891', car_info: 'Toyota Prius', verified: true, available: true, latitude: 37.7749, longitude: -122.4194 },
+        { id: 'mock-driver', name: 'Demo Driver', email: 'demo@driver.com', phone: '+10000000000', car_info: 'Demo Car', verified: true, available: false, latitude: 37.7749, longitude: -122.4194 }
       ],
       rides: [
         { id: 1, user_id: 1, driver_id: 1, pickup: '123 Main St', destination: '456 Oak Ave', status: 'completed', fare: 25.50, created_at: new Date() }
@@ -56,6 +57,19 @@ class MockDatabase {
     
     if (text.includes('UPDATE')) {
       // Mock update operations
+      if (text.includes('drivers') && text.includes('available')) {
+        // Handle availability toggle
+        const driverId = params[0];
+        const available = params[1];
+        
+        // Find and update the driver
+        const driver = this.data.drivers.find(d => d.id == driverId);
+        if (driver) {
+          driver.available = available;
+          console.log(`✅ Mock DB: Driver ${driverId} availability set to ${available}`);
+          return { rows: [driver], rowCount: 1 };
+        }
+      }
       return { rows: [], rowCount: 1 };
     }
     

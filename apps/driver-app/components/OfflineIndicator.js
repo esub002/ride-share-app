@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import offlineManager from '../utils/offlineManager';
 
-const OfflineIndicator = ({ style = {} }) => {
+const OfflineIndicator = ({ style = {}, isAvailable, onGoOnline }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingActions, setPendingActions] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -14,8 +14,8 @@ const OfflineIndicator = ({ style = {} }) => {
       setIsOnline(isOnline);
       setPendingActions(pendingActions);
       
-      // Show indicator when offline or when there are pending actions
-      const shouldShow = !isOnline || pendingActions > 0;
+      // Show indicator when offline, when there are pending actions, or when driver is not available
+      const shouldShow = !isOnline || pendingActions > 0 || !isAvailable;
       setIsVisible(shouldShow);
       
       if (shouldShow) {
@@ -31,13 +31,30 @@ const OfflineIndicator = ({ style = {} }) => {
       }
     });
 
+    // Also check availability status
+    const shouldShow = !isAvailable;
+    setIsVisible(shouldShow);
+    
+    if (shouldShow) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
+    }
+
     return unsubscribe;
-  }, []);
+  }, [isAvailable]);
 
   const handleSync = async () => {
     if (isOnline && pendingActions > 0) {
       // Trigger sync of pending actions
       console.log('Manual sync triggered');
+    }
+  };
+
+  const handleGoOnline = () => {
+    if (onGoOnline) {
+      onGoOnline();
     }
   };
 
@@ -53,20 +70,31 @@ const OfflineIndicator = ({ style = {} }) => {
     >
       <View style={styles.content}>
         <Ionicons 
-          name={isOnline ? "cloud-upload" : "cloud-offline"} 
+          name={!isAvailable ? "radio-button-off" : (isOnline ? "cloud-upload" : "cloud-offline")} 
           size={20} 
           color="#fff" 
         />
         <Text style={styles.text}>
-          {isOnline 
-            ? `Syncing ${pendingActions} pending actions...`
-            : 'You are offline'
+          {!isAvailable 
+            ? 'You are offline'
+            : (isOnline 
+              ? `Syncing ${pendingActions} pending actions...`
+              : 'Network offline'
+            )
           }
         </Text>
         
         {isOnline && pendingActions > 0 && (
           <TouchableOpacity onPress={handleSync} style={styles.syncButton}>
             <Ionicons name="refresh" size={16} color="#fff" />
+          </TouchableOpacity>
+        )}
+        
+        {/* Show Go Online button if driver is not available */}
+        {!isAvailable && (
+          <TouchableOpacity onPress={handleGoOnline} style={styles.goOnlineButton}>
+            <Ionicons name="radio-button-on" size={16} color="#fff" />
+            <Text style={styles.goOnlineText}>Go Online</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -100,6 +128,21 @@ const styles = StyleSheet.create({
   },
   syncButton: {
     padding: 4,
+  },
+  goOnlineButton: {
+    marginLeft: 12,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  goOnlineText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 6,
+    fontSize: 14,
   },
 });
 

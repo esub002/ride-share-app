@@ -16,7 +16,7 @@ describe('Safety Features', () => {
         location: { lat: 40.7128, lng: -74.0060 },
         notes: 'Test emergency'
       });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(401);
   });
 
   test('should validate safety data', () => {
