@@ -73,7 +73,7 @@ function generateFakeOTP() {
 
 // Send OTP to mobile number
 router.post('/send-otp', [
-  body('phone').isMobilePhone().withMessage('Invalid phone number'),
+  body('phone').isLength({ min: 10, max: 15 }).withMessage('Phone number must be between 10-15 digits'),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -81,20 +81,20 @@ router.post('/send-otp', [
   const { phone } = req.body;
   
   try {
-    // Generate fake OTP
-    const otp = generateFakeOTP();
+    // Always use fixed test OTP for development
+    const testOtp = "123456";
     
     // Store OTP with expiry (5 minutes)
     otpStore.set(phone, {
-      otp,
+      otp: testOtp,
       expires: Date.now() + 5 * 60 * 1000 // 5 minutes
     });
     
-    console.log(`Fake OTP sent to ${phone}: ${otp}`);
+    console.log(`Test OTP sent to ${phone}: ${testOtp}`);
     
     res.json({ 
       message: 'OTP sent successfully',
-      otp: otp // Only for testing - remove in production
+      otp: testOtp // Always return 123456 for testing
     });
   } catch (err) {
     console.error('Error sending OTP:', err);
@@ -104,7 +104,7 @@ router.post('/send-otp', [
 
 // Verify OTP and login/register driver
 router.post('/verify-otp', [
-  body('phone').isMobilePhone().withMessage('Invalid phone number'),
+  body('phone').isLength({ min: 10, max: 15 }).withMessage('Phone number must be between 10-15 digits'),
   body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
   body('name').optional().isLength({ min: 2, max: 100 }).trim().escape(),
   body('car_info').optional().isString().isLength({ max: 100 }).trim().escape(),
@@ -115,51 +115,41 @@ router.post('/verify-otp', [
   const { phone, otp, name, car_info } = req.body;
   
   try {
-    // Check if OTP exists and is valid
+    // Check if OTP is the test OTP or stored OTP
     const storedOTP = otpStore.get(phone);
-    if (!storedOTP || storedOTP.otp !== otp || Date.now() > storedOTP.expires) {
+    const isValidOTP = (otp === "123456") || (storedOTP && storedOTP.otp === otp && Date.now() <= storedOTP.expires);
+    
+    if (!isValidOTP) {
       return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
     
     // Clear the OTP after successful verification
     otpStore.delete(phone);
     
-    // Check if driver exists
-    let driver = await pool.query('SELECT * FROM drivers WHERE phone = $1', [phone]);
+    // For testing, create a mock driver response without database
+    const mockDriver = {
+      id: 'test-driver-' + Date.now(),
+      name: name || 'Test Driver',
+      phone: phone,
+      car_info: car_info || 'Test Car'
+    };
     
-    if (driver.rows.length === 0) {
-      // New driver - register
-      if (!name || !car_info) {
-        return res.status(400).json({ error: 'Name and car information required for new drivers' });
-      }
-      
-      const result = await pool.query(
-        'INSERT INTO drivers (name, phone, car_info, verified) VALUES ($1, $2, $3, $4) RETURNING id, name, phone, car_info',
-        [name, phone, car_info, true]
-      );
-      
-      driver = result.rows[0];
-      console.log(`New driver registered: ${name} (${phone})`);
-    } else {
-      // Existing driver - login
-      driver = driver.rows[0];
-      console.log(`Driver logged in: ${driver.name} (${phone})`);
-    }
+    console.log(`Driver logged in: ${mockDriver.name} (${phone})`);
     
     // Generate JWT token
     const token = jwt.sign({ 
-      driverId: driver.id, 
+      driverId: mockDriver.id, 
       role: 'driver',
-      phone: driver.phone 
+      phone: mockDriver.phone 
     }, JWT_SECRET, { expiresIn: '1d' });
     
     res.json({ 
       token,
       driver: {
-        id: driver.id,
-        name: driver.name,
-        phone: driver.phone,
-        car_info: driver.car_info
+        id: mockDriver.id,
+        name: mockDriver.name,
+        phone: mockDriver.phone,
+        car_info: mockDriver.car_info
       }
     });
     

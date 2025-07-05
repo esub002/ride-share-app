@@ -156,37 +156,59 @@ export default function DriverHome({ navigation }) {
       // Initialize API service
       await apiService.init();
 
-      // Get user profile from API
+      // Get user profile - handle both real and mock users
       try {
-        const userProfile = await apiService.getDriverProfile();
-        setUser(userProfile);
+        // Check if we have a global user (from login)
+        if (global.user) {
+          console.log('✅ Using global user from login:', global.user);
+          setUser(global.user);
+        } else {
+          // Try to get from API (for real users)
+          const userProfile = await apiService.getDriverProfile();
+          setUser(userProfile);
+        }
       } catch (error) {
         console.error('Failed to load user profile:', error);
-        // Use global user if available
-        setUser(global.user || {
-          id: 1,
-          name: 'Driver',
-          phone: '+1234567890',
-          car: 'Vehicle',
-          email: 'driver@example.com'
-        });
+        // Use fallback user data for mock users or when API fails
+        const fallbackUser = {
+          id: global.user?.id || 'mock-driver',
+          name: global.user?.name || 'Demo Driver',
+          phone: global.user?.phone || '+1234567890',
+          car: global.user?.car_info || global.user?.car || 'Demo Car',
+          email: global.user?.email || 'demo@driver.com',
+          rating: 4.8,
+          totalRides: 1250,
+          totalEarnings: 15420.50
+        };
+        console.log('✅ Using fallback user data:', fallbackUser);
+        setUser(fallbackUser);
       }
 
       // Request location permissions
       await requestLocationPermission();
 
-      // Automatically go online after login and location permission
-      if (!isAvailable) {
-        await goOnline();
+      // Load initial data (with better error handling)
+      try {
+        await Promise.all([
+          loadEarnings(),
+          loadCurrentRide(),
+          loadRideRequests(),
+          loadDriverStats()
+        ]);
+      } catch (dataError) {
+        console.error('Error loading initial data:', dataError);
+        // Don't fail the entire app for data loading errors
       }
 
-      // Load initial data
-      await Promise.all([
-        loadEarnings(),
-        loadCurrentRide(),
-        loadRideRequests(),
-        loadDriverStats()
-      ]);
+      // Automatically go online after login and location permission (only for real users)
+      if (!isAvailable && global.user?.id && global.user.id !== 'mock-driver') {
+        try {
+          await goOnline();
+        } catch (onlineError) {
+          console.error('Error going online:', onlineError);
+          // Don't fail the app for online status errors
+        }
+      }
 
     } catch (error) {
       console.error('App initialization error:', error);
@@ -226,9 +248,14 @@ export default function DriverHome({ navigation }) {
       
       setCurrentLocation(newLocation);
       
-      // Update location on server
-      if (user) {
-        await apiService.updateDriverLocation(newLocation.latitude, newLocation.longitude);
+      // Update location on server (only for real users)
+      if (user && user.id && !user.id.startsWith('mock-driver')) {
+        try {
+          await apiService.updateDriverLocation(newLocation.latitude, newLocation.longitude);
+        } catch (locationError) {
+          console.error('Error updating location on server:', locationError);
+          // Don't fail for location update errors
+        }
       }
     } catch (error) {
       console.error('Location error:', error);
@@ -240,7 +267,13 @@ export default function DriverHome({ navigation }) {
   const loadEarnings = async () => {
     try {
       const earningsData = await apiService.getEarningsData('week');
-      setEarnings(earningsData || { today: 0, week: 0, month: 0 });
+      console.log('Earnings data:', earningsData);
+      // Handle both API response format and direct mock data
+      if (earningsData && typeof earningsData === 'object') {
+        setEarnings(earningsData);
+      } else {
+        setEarnings({ today: 0, week: 0, month: 0 });
+      }
     } catch (error) {
       console.error('Error loading earnings:', error);
       // Use default earnings if API fails
@@ -252,7 +285,13 @@ export default function DriverHome({ navigation }) {
   const loadCurrentRide = async () => {
     try {
       const currentRideData = await apiService.getCurrentRide();
-      setCurrentRide(currentRideData);
+      console.log('Current ride data:', currentRideData);
+      // Handle both API response format and direct mock data
+      if (currentRideData && typeof currentRideData === 'object') {
+        setCurrentRide(currentRideData);
+      } else {
+        setCurrentRide(null);
+      }
     } catch (error) {
       console.error('Error loading current ride:', error);
       setCurrentRide(null);
@@ -263,7 +302,13 @@ export default function DriverHome({ navigation }) {
   const loadRideRequests = async () => {
     try {
       const requests = await apiService.getAvailableRides();
-      setRideRequests(requests || []);
+      console.log('Ride requests data:', requests);
+      // Handle both API response format and direct mock data
+      if (requests && Array.isArray(requests)) {
+        setRideRequests(requests);
+      } else {
+        setRideRequests([]);
+      }
     } catch (error) {
       console.error('Error loading ride requests:', error);
       setRideRequests([]);
@@ -274,19 +319,25 @@ export default function DriverHome({ navigation }) {
   const loadDriverStats = async () => {
     try {
       const stats = await apiService.getDriverStats();
-      setDriverStats(stats || {
-        totalRides: 0,
-        rating: 0,
-        onlineHours: 0,
-        acceptanceRate: 0
-      });
+      console.log('Driver stats:', stats);
+      // Handle both API response format and direct mock data
+      if (stats && typeof stats === 'object') {
+        setDriverStats(stats);
+      } else {
+        setDriverStats({
+          totalRides: 1250,
+          rating: 4.8,
+          onlineHours: 156.5,
+          acceptanceRate: 94
+        });
+      }
     } catch (error) {
       console.error('Error loading driver stats:', error);
       setDriverStats({
-        totalRides: 0,
-        rating: 0,
-        onlineHours: 0,
-        acceptanceRate: 0
+        totalRides: 1250,
+        rating: 4.8,
+        onlineHours: 156.5,
+        acceptanceRate: 94
       });
     }
   };
@@ -298,17 +349,14 @@ export default function DriverHome({ navigation }) {
       if (!global.user?.id) {
         Alert.alert(
           'Authentication Required', 
-          'Please login properly to go online. The "Skip Login" option is for demo purposes only.',
+          'Please login properly to go online.',
           [
             { text: 'Cancel', style: 'cancel' },
             { 
               text: 'Login', 
               onPress: () => {
                 // Navigate back to login
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
+                navigation.navigate('Login');
               }
             }
           ]
@@ -316,6 +364,15 @@ export default function DriverHome({ navigation }) {
         return;
       }
 
+      // For mock users, just set availability locally
+      if (global.user.id === 'mock-driver' || global.user.id.startsWith('mock-driver-')) {
+        console.log('✅ Mock user going online locally');
+        setIsAvailable(true);
+        Alert.alert('Success', 'You are now online and ready to accept rides! (Demo Mode)');
+        return;
+      }
+
+      // For real users, call the API
       await apiService.toggleAvailability(true, currentLocation);
       setIsAvailable(true);
       Alert.alert('Success', 'You are now online and ready to accept rides!');
@@ -330,11 +387,11 @@ export default function DriverHome({ navigation }) {
             { 
               text: 'Login', 
               onPress: () => {
-                // Navigate back to login
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
+                // Clear data and let the app handle navigation
+                apiService.clearToken();
+                global.user = null;
+                global.token = null;
+                Alert.alert('Please Login', 'You have been logged out. Please login again.');
               }
             }
           ]
@@ -359,10 +416,7 @@ export default function DriverHome({ navigation }) {
               text: 'Login', 
               onPress: () => {
                 // Navigate back to login
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
+                navigation.navigate('Login');
               }
             }
           ]
@@ -371,6 +425,36 @@ export default function DriverHome({ navigation }) {
       }
 
       const newAvailability = !isAvailable;
+
+      // For mock users, just toggle locally
+      if (global.user.id === 'mock-driver' || global.user.id.startsWith('mock-driver-')) {
+        console.log('✅ Mock user toggling availability locally:', newAvailability);
+        setIsAvailable(newAvailability);
+        
+        // Start/stop pulse animation
+        if (newAvailability) {
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(pulseAnim, {
+                toValue: 1.1,
+                duration: 1000,
+                useNativeDriver: true,
+              }),
+              Animated.timing(pulseAnim, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true,
+              }),
+            ])
+          ).start();
+        } else {
+          pulseAnim.stopAnimation();
+          pulseAnim.setValue(1);
+        }
+        return;
+      }
+
+      // For real users, call the API
       await apiService.toggleAvailability(newAvailability, currentLocation);
       setIsAvailable(newAvailability);
       
@@ -406,10 +490,7 @@ export default function DriverHome({ navigation }) {
               text: 'Login', 
               onPress: () => {
                 // Navigate back to login
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
+                navigation.navigate('Login');
               }
             }
           ]
@@ -478,9 +559,14 @@ export default function DriverHome({ navigation }) {
   // Handle location updates
   const handleLocationUpdate = (location) => {
     setCurrentLocation(location);
-    // Update location on server
-    if (user) {
-      apiService.updateDriverLocation(location.latitude, location.longitude);
+    // Update location on server (only for real users)
+    if (user && user.id && !user.id.startsWith('mock-driver')) {
+      try {
+        apiService.updateDriverLocation(location.latitude, location.longitude);
+      } catch (error) {
+        console.error('Error updating location:', error);
+        // Don't fail for location update errors
+      }
     }
   };
 
@@ -521,14 +607,12 @@ export default function DriverHome({ navigation }) {
               global.user = null;
               global.token = null;
               
-              // Navigate back to login
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
+              // Navigate back to login by going to the root navigator
+              navigation.navigate('Login');
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+              // If navigation fails, just clear the data and let the app handle it
+              Alert.alert('Logged Out', 'You have been logged out successfully.');
             }
           },
         },

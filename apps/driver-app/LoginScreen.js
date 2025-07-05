@@ -10,6 +10,7 @@ import {
   ScrollView,
   Image,
   TextInput,
+  TouchableOpacity,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import apiService from './utils/api';
@@ -19,6 +20,7 @@ import { Spacing, BorderRadius, Shadows } from './constants/Spacing';
 import Button from './components/ui/Button';
 import Input from './components/ui/Input';
 import Card from './components/ui/Card';
+import PhoneInput from 'react-native-phone-number-input';
 
 export default function LoginScreen({ onLogin }) {
   const [step, setStep] = useState('phone'); // 'phone' or 'otp'
@@ -31,6 +33,8 @@ export default function LoginScreen({ onLogin }) {
   const [isNewUser, setIsNewUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState('checking');
+  const [formattedPhone, setFormattedPhone] = useState("");
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
   
   const phoneInputRef = useRef(null);
   const otpInputRef = useRef(null);
@@ -65,47 +69,68 @@ export default function LoginScreen({ onLogin }) {
   }, []);
 
   const handleSendOTP = useCallback(async () => {
-    if (!isPhoneValid()) return;
+    console.log('🔵 Send OTP button pressed');
+    console.log('📱 Phone:', phone);
+    console.log('📱 Formatted phone:', formattedPhone);
     
-    const currentPhone = phone; // Capture the current phone number
+    // Simplified validation - just check if we have a phone number
+    if (!formattedPhone || formattedPhone.length < 10) {
+      console.log('❌ Phone validation failed');
+      setError('Please enter a valid phone number');
+      return;
+    }
     
     try {
-      console.log('Sending OTP to:', currentPhone);
+      console.log('✅ Phone validation passed, proceeding to OTP step');
+      console.log('🧪 Using test OTP flow - no API call needed');
       setLoading(true);
       setError('');
       
-      const response = await apiService.sendOTP(currentPhone);
-      console.log('OTP send response:', response);
+      // Simulate a brief loading state for better UX
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // The API returns { message: "OTP sent successfully", otp: "123456" }
-      // We need to check for the message, not success property
-      if (response.message && response.otp) {
-        setStep('otp');
-        // Ensure phone number is preserved
-        if (phone !== currentPhone) {
-          setPhone(currentPhone);
+      // Skip API call and go directly to OTP step
+      setStep('otp');
+      // Automatically fill test OTP
+      setOtp("123456");
+      console.log('✅ Test OTP filled: 123456');
+      
+      // Immediate auto-login for instant access
+      setIsAutoLoggingIn(true);
+      console.log('🚀 Immediate auto-login starting...');
+      
+      const mockLoginData = {
+        token: 'mock-token-' + Date.now(),
+        driver: {
+          id: 'mock-driver-' + Date.now(),
+          name: name || 'Demo Driver',
+          phone: formattedPhone,
+          car_info: carInfo || 'Demo Car',
+          email: 'demo@driver.com',
         }
-        console.log('OTP sent successfully, moving to OTP step. Phone:', currentPhone);
-      } else {
-        setError(response.error || 'Failed to send OTP');
-      }
+      };
+      
+      console.log('✅ Immediate mock login successful:', mockLoginData);
+      onLogin(mockLoginData.token, mockLoginData.driver);
+      
     } catch (error) {
-      console.error('OTP send error:', error);
-      setError('Network error. Please try again.');
+      console.error('Error in OTP flow:', error);
+      setError('Error in OTP flow. Please try again.');
+      setIsAutoLoggingIn(false);
     } finally {
       setLoading(false);
     }
-  }, [phone, isPhoneValid]);
+  }, [formattedPhone, phone, name, carInfo, onLogin]);
 
   const handleVerifyOTP = useCallback(async () => {
     if (!isOTPValid()) return;
     
     try {
-      console.log('Verifying OTP for:', phone);
+      console.log('Verifying OTP for:', formattedPhone);
       setLoading(true);
       setError('');
       
-      const loginData = await apiService.loginDriver(phone, otp, name, carInfo);
+      const loginData = await apiService.loginDriver(formattedPhone, otp, name, carInfo);
       console.log('Login response:', loginData);
       
       if (loginData.token && loginData.driver) {
@@ -119,10 +144,10 @@ export default function LoginScreen({ onLogin }) {
     } finally {
       setLoading(false);
     }
-  }, [phone, otp, name, carInfo, onLogin, isOTPValid]);
+  }, [formattedPhone, otp, name, carInfo, onLogin, isOTPValid]);
 
   const isPhoneValid = () => {
-    return phone.length >= 10 && phone.length <= 15;
+    return phoneInputRef.current?.isValidNumber(phone) && formattedPhone.length > 0;
   };
 
   const isOTPValid = () => {
@@ -187,7 +212,9 @@ export default function LoginScreen({ onLogin }) {
           <Text style={styles.statusText}>
             🔗 Connected to Backend API{'\n'}
             📱 Login via mobile number and OTP{'\n'}
-            🧪 Test OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
+            🧪 <Text style={styles.highlightText}>TEST MODE</Text> - Auto Login with Test OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
+            🚀 <Text style={styles.highlightText}>IMMEDIATE LOGIN</Text> - Enter phone number to go directly to Driver Home{'\n'}
+            ⚡ <Text style={styles.highlightText}>Instant access</Text> - No delays{'\n'}
             📱 Platform: {Platform.OS} | Version: {Platform.Version}
           </Text>
         </Card>
@@ -203,37 +230,60 @@ export default function LoginScreen({ onLogin }) {
               <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
+          ) : isAutoLoggingIn ? (
+            <View style={styles.successContainer}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.light.success} />
+              <Text style={styles.successText}>
+                Immediate login successful! Redirecting to Driver Home...
+              </Text>
+            </View>
           ) : null}
           
           {step === 'phone' && (
             <View style={styles.formSection}>
-              <Input
-                label="Mobile Number"
-                placeholder="Enter your mobile number"
-                value={phone}
-                onChangeText={(text) => {
-                  console.log('Phone number changed:', text);
-                  setPhone(text);
-                }}
-                keyboardType="phone-pad"
-                maxLength={15}
-                leftIcon="call"
-                required
-                returnKeyType="done"
-                blurOnSubmit={false}
-                autoFocus={false}
+              <PhoneInput
                 ref={phoneInputRef}
+                defaultValue={phone}
+                defaultCode="US"
+                layout="first"
+                onChangeText={setPhone}
+                onChangeFormattedText={setFormattedPhone}
+                countryPickerProps={{ withAlphaFilter: true }}
+                withShadow
+                autoFocus={false}
+                containerStyle={{ marginBottom: 16 }}
+                textInputProps={{
+                  placeholder: 'Enter your mobile number',
+                  returnKeyType: 'done',
+                  blurOnSubmit: true,
+                  keyboardType: 'phone-pad',
+                  accessible: true,
+                  accessibilityLabel: 'Mobile Number',
+                }}
               />
               
               <Button
-                title="Send OTP"
+                title={
+                  isAutoLoggingIn 
+                    ? "🚀 Logging In..." 
+                    : formattedPhone && formattedPhone.length >= 10 
+                      ? "🚀 Immediate Login (Test Mode)" 
+                      : "Enter Phone Number"
+                }
                 onPress={handleSendOTP}
-                loading={loading}
-                disabled={!isPhoneValid()}
-                icon="send"
+                loading={loading || isAutoLoggingIn}
+                disabled={!formattedPhone || formattedPhone.length < 10 || isAutoLoggingIn}
+                icon={isAutoLoggingIn ? "rocket" : "key"}
                 size="large"
                 style={styles.submitButton}
               />
+              
+              {/* Debug info */}
+              {__DEV__ && (
+                <Text style={styles.debugText}>
+                  Phone: {phone || 'none'} | Formatted: {formattedPhone || 'none'} | Length: {formattedPhone?.length || 0}
+                </Text>
+              )}
 
               {/* Skip Login Button */}
               <Button
@@ -258,7 +308,7 @@ export default function LoginScreen({ onLogin }) {
             <View style={styles.formSection}>
               <View style={styles.phoneDisplay}>
                 <Ionicons name="phone-portrait" size={20} color={Colors.light.icon} />
-                <Text style={styles.phoneText}>OTP sent to: {phone}</Text>
+                <Text style={styles.phoneText}>OTP sent to: {formattedPhone}</Text>
               </View>
               
               <Input
@@ -274,6 +324,14 @@ export default function LoginScreen({ onLogin }) {
                 blurOnSubmit={false}
                 ref={otpInputRef}
               />
+
+              {/* Test OTP Info */}
+              <View style={styles.testOtpInfo}>
+                <Ionicons name="information-circle" size={20} color={Colors.light.primary} />
+                <Text style={styles.testOtpText}>
+                  Test OTP <Text style={styles.highlightText}>123456</Text> has been auto-filled
+                </Text>
+              </View>
 
               {isNewUser && (
                 <View style={styles.registrationSection}>
@@ -567,6 +625,54 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.borderLight,
     borderRadius: BorderRadius.lg,
+  },
+  
+  testOtpButton: {
+    marginTop: Spacing.base,
+  },
+  
+  debugText: {
+    ...Typography.caption,
+    color: Colors.light.textTertiary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    fontFamily: 'monospace',
+  },
+  
+  testOtpInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.primary + '10',
+    padding: Spacing.base,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.base,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.primary,
+  },
+  
+  testOtpText: {
+    ...Typography.body2,
+    color: Colors.light.textSecondary,
+    marginLeft: Spacing.sm,
+    flex: 1,
+  },
+  
+  successContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.success + '10',
+    padding: Spacing.base,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.success,
+  },
+  
+  successText: {
+    ...Typography.body2,
+    color: Colors.light.success,
+    marginLeft: Spacing.sm,
+    flex: 1,
   },
 });
   

@@ -146,7 +146,8 @@
       "eas": {
         "projectId": "b14182db-f2ff-49f6-bb0f-b4c10475c542"
       },
-      "router": {}
+      "router": {},
+      "USE_MOCK_DATA": "true"
     }
   }
 }

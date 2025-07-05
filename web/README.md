@@ -1,73 +1,74 @@
-# 🏢 Admin Dashboard
+# 🌐 Web Interface
 
-A comprehensive React-based admin dashboard for managing the ride-sharing platform, monitoring real-time data, and overseeing driver and rider activities.
+A modern React-based web interface for the ride-sharing platform, providing rider booking capabilities and real-time ride tracking.
 
 ## 🎯 Quick Start
 
 ### **Setup**
 ```bash
-cd admin-dashboard
+cd web
 npm install
 npm start
 ```
 
 ### **Access**
-- **URL**: http://localhost:3001
-- **Default Credentials**: Use test OTP system for authentication
+- **URL**: http://localhost:3002
+- **Authentication**: Use test OTP system for login
 
 ## 🏗️ Architecture
 
 ### **Core Features**
-- **Real-time Monitoring**: Live dashboard with Socket.IO integration
-- **Driver Management**: View and manage driver accounts
-- **Ride Analytics**: Comprehensive ride statistics and metrics
-- **Safety Monitoring**: Emergency alerts and safety metrics
-- **Earnings Tracking**: Financial analytics and reporting
-- **User Management**: Rider and driver account management
+- **Rider Booking**: Complete ride booking interface
+- **Real-time Tracking**: Live ride tracking with maps
+- **User Authentication**: Phone + OTP login system
+- **Payment Integration**: Secure payment processing
+- **Ride History**: Complete trip history and receipts
+- **Profile Management**: User profile and preferences
 
 ### **Technology Stack**
 - **React**: Modern UI framework
-- **Socket.IO Client**: Real-time data updates
-- **Chart.js**: Data visualization
+- **Socket.IO Client**: Real-time communication
+- **Google Maps**: Location and navigation services
 - **Material-UI**: Component library
 - **Axios**: HTTP client for API calls
+- **Stripe**: Payment processing
 
-## 📊 Dashboard Features
+## 📱 Interface Features
 
-### **Real-time Monitoring**
-- **Live Ride Requests**: Real-time ride request monitoring
-- **Driver Locations**: Live GPS tracking of all drivers
-- **System Status**: Backend health and performance metrics
-- **Emergency Alerts**: Instant notification of safety incidents
+### **Rider Booking**
+- **Location Selection**: Pickup and destination input
+- **Real-time Pricing**: Instant fare calculation
+- **Driver Matching**: Find nearby available drivers
+- **Booking Confirmation**: Secure ride confirmation
 
-### **Analytics & Reporting**
-- **Ride Statistics**: Daily, weekly, monthly ride metrics
-- **Driver Performance**: Driver ratings, earnings, and activity
-- **Revenue Analytics**: Financial performance tracking
-- **Safety Metrics**: Incident reports and safety statistics
+### **Real-time Tracking**
+- **Live Map**: Real-time driver location tracking
+- **ETA Updates**: Dynamic arrival time estimates
+- **Route Visualization**: Optimal route display
+- **Status Updates**: Real-time ride status changes
 
-### **Management Tools**
-- **Driver Management**: View, edit, and manage driver accounts
-- **User Management**: Rider account administration
-- **Ride Management**: Monitor and manage active rides
-- **System Configuration**: Platform settings and configuration
+### **User Management**
+- **Profile Management**: Personal information and preferences
+- **Payment Methods**: Secure payment method management
+- **Ride History**: Complete trip history and receipts
+- **Ratings & Reviews**: Driver rating and feedback system
 
 ## 🔐 Authentication
 
 ### **Test OTP Integration**
-The admin dashboard integrates with the test OTP system:
+The web interface integrates with the test OTP system:
 
 #### **Login Flow**
 1. **Enter Phone Number**: Any valid format (e.g., +1234567890)
 2. **Click "🧪 Use Test OTP"**: No API call needed
 3. **OTP auto-fills**: "123456" is automatically entered
-4. **Click "Verify OTP"**: Instant admin access
+4. **Click "Verify OTP"**: Instant user access
 
-#### **Admin Privileges**
-- **Full Access**: Complete platform management
-- **Real-time Data**: Live monitoring capabilities
-- **User Management**: Driver and rider administration
-- **System Configuration**: Platform settings control
+#### **User Features**
+- **Ride Booking**: Complete booking capabilities
+- **Real-time Tracking**: Live ride monitoring
+- **Payment Management**: Secure payment processing
+- **Trip History**: Complete ride records
 
 ## 🚀 API Integration
 
@@ -78,8 +79,8 @@ const API_BASE_URL = 'http://localhost:3000/api';
 const SOCKET_URL = 'http://localhost:3000';
 
 // Authentication
-const loginAdmin = async (phone, otp) => {
-  const response = await axios.post(`${API_BASE_URL}/auth/admin/verify-otp`, {
+const loginUser = async (phone, otp) => {
+  const response = await axios.post(`${API_BASE_URL}/auth/user/verify-otp`, {
     phone,
     otp
   });
@@ -90,14 +91,14 @@ const loginAdmin = async (phone, otp) => {
 ### **Real-time Events**
 ```javascript
 // Socket.IO Events
-socket.on('ride:request', (data) => {
-  // New ride request received
-  updateRideRequests(data);
+socket.on('driver:assigned', (data) => {
+  // Driver assigned to ride
+  updateDriverInfo(data);
 });
 
-socket.on('emergency:alert', (data) => {
-  // Emergency alert received
-  showEmergencyAlert(data);
+socket.on('ride:update', (data) => {
+  // Ride status update
+  updateRideStatus(data);
 });
 
 socket.on('driver:location', (data) => {
@@ -106,31 +107,31 @@ socket.on('driver:location', (data) => {
 });
 ```
 
-## 📱 Dashboard Components
+## 📱 Interface Components
 
 ### **Main Dashboard**
-- **Overview Cards**: Key metrics at a glance
-- **Real-time Charts**: Live data visualization
-- **Activity Feed**: Recent platform activity
-- **Quick Actions**: Common admin tasks
+- **Quick Book**: Fast ride booking interface
+- **Recent Rides**: Recent trip history
+- **Active Ride**: Current ride tracking
+- **Payment Methods**: Quick payment access
 
-### **Driver Management**
-- **Driver List**: All registered drivers
-- **Driver Details**: Individual driver information
-- **Performance Metrics**: Driver ratings and statistics
-- **Earnings Reports**: Financial performance data
+### **Booking Interface**
+- **Location Input**: Pickup and destination selection
+- **Fare Calculator**: Real-time pricing
+- **Driver Selection**: Available driver options
+- **Booking Confirmation**: Secure booking process
 
-### **Ride Management**
-- **Active Rides**: Currently ongoing rides
-- **Ride History**: Completed ride records
-- **Ride Analytics**: Performance metrics
-- **Issue Resolution**: Problem ride management
+### **Ride Tracking**
+- **Live Map**: Real-time location tracking
+- **Driver Info**: Driver details and contact
+- **ETA Display**: Dynamic arrival estimates
+- **Status Updates**: Real-time ride status
 
-### **Safety Monitoring**
-- **Emergency Alerts**: Real-time safety notifications
-- **Incident Reports**: Safety incident tracking
-- **Safety Metrics**: Platform safety statistics
-- **Emergency Contacts**: Driver emergency contact management
+### **User Profile**
+- **Personal Info**: User information management
+- **Payment Methods**: Payment method management
+- **Ride History**: Complete trip records
+- **Preferences**: User preferences and settings
 
 ## 🔧 Development Setup
 
@@ -138,12 +139,15 @@ socket.on('driver:location', (data) => {
 - Node.js 18+
 - React development environment
 - Backend API server running
+- Google Maps API key
 
 ### **Environment Configuration**
 ```env
 # .env
 REACT_APP_API_URL=http://localhost:3000/api
 REACT_APP_SOCKET_URL=http://localhost:3000
+REACT_APP_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+REACT_APP_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 REACT_APP_ENVIRONMENT=development
 ```
 
@@ -166,11 +170,11 @@ npm run build
 2. **Click "🧪 Use Test OTP"**: No API call, instant response
 3. **OTP Auto-fills**: "123456" is automatically entered
 4. **Verify OTP**: Backend accepts "123456" as valid
-5. **Admin Access**: Full dashboard access granted
+5. **User Access**: Full web interface access granted
 
 ### **Test Data**
 - **Test OTP**: Always "123456"
-- **Mock Admin**: Auto-generated admin account
+- **Mock User**: Auto-generated user account
 - **Mock Drivers**: Sample driver data
 - **Mock Rides**: Sample ride data
 
@@ -192,13 +196,13 @@ npm run test:e2e
 - **Page Load**: < 2 seconds
 - **API Response**: < 200ms average
 - **Real-time Updates**: < 100ms latency
-- **Chart Rendering**: < 500ms for complex charts
+- **Map Rendering**: < 500ms for complex maps
 
 ### **Optimization Features**
 - **Code Splitting**: Lazy loading of components
 - **Memoization**: React.memo for expensive components
 - **Virtual Scrolling**: Large data set handling
-- **Caching**: API response caching
+- **Caching**: API response and map tile caching
 - **Bundle Optimization**: Tree shaking and minification
 
 ## 🔒 Security
@@ -214,6 +218,7 @@ npm run test:e2e
 - Input validation and sanitization
 - XSS protection
 - CSRF protection
+- Secure payment processing
 
 ## 🚀 Deployment
 
@@ -241,10 +246,10 @@ npm run deploy
 ### **Docker Deployment**
 ```bash
 # Build Docker image
-docker build -t admin-dashboard .
+docker build -t web-interface .
 
 # Run container
-docker run -p 3001:3001 admin-dashboard
+docker run -p 3002:3002 web-interface
 ```
 
 ## 📈 Monitoring
@@ -256,9 +261,9 @@ docker run -p 3001:3001 admin-dashboard
 - **User Analytics**: Usage patterns and behavior
 
 ### **Business Metrics**
-- **Platform Usage**: Active drivers and riders
-- **Revenue Tracking**: Financial performance
-- **Safety Metrics**: Incident rates and resolution
+- **Booking Conversion**: Ride booking success rates
+- **User Retention**: User engagement and retention
+- **Payment Success**: Payment processing metrics
 - **User Satisfaction**: Ratings and feedback
 
 ## 🔧 Troubleshooting
@@ -274,6 +279,11 @@ docker run -p 3001:3001 admin-dashboard
 - Verify Socket.IO connection
 - Check backend Socket.IO server
 - Ensure proper event handling
+
+#### **Google Maps Not Loading**
+- Verify Google Maps API key
+- Check API key restrictions
+- Ensure billing is enabled
 
 #### **Build Issues**
 - Clear node_modules: `rm -rf node_modules && npm install`
@@ -311,15 +321,15 @@ npm audit
 
 ## 🎯 Key Features
 
-✅ **Complete Test OTP Integration**: Seamless admin authentication
-✅ **Real-time Monitoring**: Live dashboard with Socket.IO
-✅ **Comprehensive Analytics**: Data visualization and reporting
-✅ **Driver Management**: Complete driver administration
-✅ **Safety Monitoring**: Emergency alerts and incident tracking
+✅ **Complete Test OTP Integration**: Seamless user authentication
+✅ **Real-time Booking**: Live ride booking and tracking
+✅ **Modern UI/UX**: Beautiful and intuitive interface
+✅ **Payment Integration**: Secure payment processing
+✅ **Map Integration**: Google Maps for location services
 ✅ **Performance Optimization**: Fast and responsive interface
 ✅ **Security Implementation**: Production-ready security
 ✅ **Deployment Ready**: Optimized for production deployment
 
 ---
 
-**The Admin Dashboard provides comprehensive management capabilities for the ride-sharing platform with emphasis on real-time monitoring, analytics, and user management. The test OTP integration ensures smooth development and testing workflows.**
+**The Web Interface provides a complete solution for ride booking and tracking with emphasis on user experience, real-time updates, and secure payment processing. The test OTP integration ensures smooth development and testing workflows.** 
