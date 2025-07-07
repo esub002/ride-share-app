@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, ActivityIn
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import socket from '../utils/socket';
+import firebaseServiceManager from '../firebase';
 
 // Memoized ride card component for better performance
 const RideCard = React.memo(({ ride, onAccept, onReject }) => (
@@ -73,6 +74,8 @@ export default function Dashboard() {
   const driverId = 2;
   const [rideRequests, setRideRequests] = useState([]);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [driverStats, setDriverStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Memoized callbacks to prevent unnecessary re-renders
   const acceptRide = useCallback((rideId) => {
@@ -114,6 +117,32 @@ export default function Dashboard() {
       socket.off('ride:incoming', handleRideIncoming);
     };
   }, []);
+
+  // Firestore real-time listener for driver stats
+  useEffect(() => {
+    let unsubscribe;
+    const listenToDriverStats = async () => {
+      await firebaseServiceManager.initialize();
+      const firestore = firebaseServiceManager.getFirestore();
+      const { doc, onSnapshot } = await import('firebase/firestore');
+      unsubscribe = onSnapshot(
+        doc(firestore.db, 'drivers', String(driverId)),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            setDriverStats(docSnap.data());
+          }
+          setLoadingStats(false);
+        },
+        (error) => {
+          setLoadingStats(false);
+        }
+      );
+    };
+    listenToDriverStats();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [driverId]);
 
   // Memoized ride requests list
   const rideRequestsList = useMemo(() => {
@@ -168,6 +197,17 @@ export default function Dashboard() {
         </Text>
         {rideRequestsList}
       </View>
+
+      {/* Driver Stats Section */}
+      {loadingStats ? (
+        <ActivityIndicator size="small" color="#1976d2" style={{ margin: 16 }} />
+      ) : driverStats ? (
+        <View style={{ padding: 16, backgroundColor: 'white', borderRadius: 8, margin: 16, marginBottom: 0 }}>
+          <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4 }}>Earnings: ${driverStats.totalEarnings || 0}</Text>
+          <Text style={{ fontSize: 14, color: '#555' }}>Total Rides: {driverStats.totalRides || 0}</Text>
+          <Text style={{ fontSize: 14, color: '#555' }}>Rating: {driverStats.rating || '-'}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }

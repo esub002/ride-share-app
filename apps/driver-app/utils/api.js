@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import offlineManager from './offlineManager';
 import performanceOptimizer from './performanceOptimizer';
+import firebaseIntegration from './firebaseIntegration';
 import { Platform } from 'react-native';
 
 // === API BASE URL (Docker backend access) ===
@@ -8,8 +9,8 @@ import { Platform } from 'react-native';
 // Try multiple ports in case backend is running on different port
 const getApiBaseUrl = () => {
   const baseHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-  // Try common ports where backend might be running - prioritize the current backend port
-  const ports = [3028, 3000, 3001, 3010, 3015];
+  // Use the correct backend port - update this to match your backend
+  const ports = [3000, 3028, 3001, 3010, 3015];
   return `http://${baseHost}:${ports[0]}`; // Use first port, fallback logic will handle failures
 };
 const API_BASE_URL = getApiBaseUrl();
@@ -17,7 +18,7 @@ const API_BASE_URL = getApiBaseUrl();
 // === DEV MODE FLAG (Automated for Expo and React Native CLI) ===
 // For Expo: set "extra.USE_MOCK_DATA" in app.json or app.config.js
 // For React Native CLI: set USE_MOCK_DATA in .env or your build environment
-let USE_MOCK_DATA = true; // Force mock mode for now to ensure app works
+let USE_MOCK_DATA = false; // Set to false to use real backend
 try {
   // Expo: Constants.manifest.extra.USE_MOCK_DATA
   const Constants = require('expo-constants').default;
@@ -104,6 +105,9 @@ class ApiService {
     this.socket = null;
     this.connectedBackend = null;
     this.mockMode = USE_MOCK_DATA;
+    this.firebaseIntegration = null;
+    this.eventCallbacks = {};
+    
     if (this.mockMode) {
       console.warn('⚠️ ApiService is running in MOCK mode.');
     }
@@ -117,16 +121,31 @@ class ApiService {
     }
     try {
       console.log('🔧 Initializing API Service...');
+      
+      // Initialize Firebase integration
+      console.log('🔥 Initializing Firebase integration...');
+      this.firebaseIntegration = firebaseIntegration;
+      const firebaseSuccess = await this.firebaseIntegration.initialize();
+      if (firebaseSuccess) {
+        console.log('✅ Firebase integration initialized');
+        // Setup real-time listeners
+        this.firebaseIntegration.setupRealtimeListeners();
+      } else {
+        console.warn('⚠️ Firebase integration failed, continuing without Firebase');
+      }
+      
       // No backend auto-detection, always use hardcoded API_BASE_URL
       this.connectedBackend = API_BASE_URL;
       this.baseURL = `${API_BASE_URL}/api`;
       console.log(`✅ API Service connected to: ${API_BASE_URL}`);
+      
       // Load stored token
       const storedToken = await AsyncStorage.getItem('driver_token');
       if (storedToken) {
         this.token = storedToken;
         console.log('🔑 Loaded stored authentication token');
       }
+      
       // Initialize socket connection
       this.initializeSocket();
       return true;
@@ -418,12 +437,125 @@ class ApiService {
     throw new Error(result.error || 'Failed to send OTP');
   }
 
+  // Google Sign-In methods
+  async checkUserExists(email) {
+    if (this.mockMode) {
+      // Mock user check
+      const mockUsers = ['test@example.com', 'driver@example.com'];
+      const exists = mockUsers.includes(email);
+      return { success: true, data: { exists } };
+    }
+    
+    try {
+      const response = await this.request(`/auth/driver/check-email?email=${encodeURIComponent(email)}`, {
+        method: 'GET'
+      });
+      return response;
+    } catch (error) {
+      console.error('Check user error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async googleSignIn(userData) {
+    if (this.mockMode) {
+      // Mock Google Sign-In response
+      const mockUser = {
+        id: 'google-driver-' + Date.now(),
+        firebaseUid: userData.firebaseUid,
+        email: userData.email,
+        name: userData.displayName || 'Google Driver',
+        photoURL: userData.photoURL,
+        phone: null,
+        car_info: null,
+        isActive: true,
+        registrationDate: new Date().toISOString(),
+        lastLogin: new Date().toISOString()
+      };
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return {
+        success: true,
+        token: 'google-jwt-token-' + Date.now(),
+        user: mockUser
+      };
+    }
+    
+    try {
+      const response = await this.request('/auth/driver/google-signin', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+      
+      if (response.success && response.data.token) {
+        this.setToken(response.data.token);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async googleSignUp(userData) {
+    if (this.mockMode) {
+      // Mock Google Sign-Up response
+      const mockUser = {
+        id: 'google-driver-' + Date.now(),
+        firebaseUid: userData.firebaseUid,
+        email: userData.email,
+        name: userData.displayName || 'New Google Driver',
+        photoURL: userData.photoURL,
+        phone: null,
+        car_info: null,
+        isActive: true,
+        registrationDate: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        profileComplete: false
+      };
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return {
+        success: true,
+        token: 'google-jwt-token-' + Date.now(),
+        user: mockUser
+      };
+    }
+    
+    try {
+      const response = await this.request('/auth/driver/google-signup', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+      
+      if (response.success && response.data.token) {
+        this.setToken(response.data.token);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Google Sign-Up error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Driver profile methods
   async getDriverProfile() {
-    if (this.mockMode) {
+    // Check if this is a mock user
+    const driverId = global.user?.id || this.userId;
+    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-') || driverId === 1);
+    
+    // For mock users or mock mode, return mock data
+    if (this.mockMode || isMockUser) {
+      console.log('✅ Mock user profile:', mockData.user);
       return mockData.user;
     }
-    const driverId = global.user?.id || this.userId;
+    
     if (!driverId) {
       throw new Error('Driver ID not found. Please login again.');
     }
@@ -450,11 +582,13 @@ class ApiService {
     if (this.mockMode) {
       return { latitude, longitude };
     }
+    
     // Get the current user/driver ID
     const driverId = global.user?.id || this.userId;
     if (!driverId) {
       throw new Error('Driver ID not found. Please login again.');
     }
+    
     const result = await this.request(`/drivers/${driverId}/location`, {
       method: 'PUT',
       body: JSON.stringify({ latitude, longitude })
@@ -465,50 +599,59 @@ class ApiService {
       this.socket.emit('driver:location', { latitude, longitude });
     }
 
+    // Update Firebase with location data
+    if (this.firebaseIntegration) {
+      try {
+        await this.firebaseIntegration.updateLocation(latitude, longitude, {
+          driverId,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.warn('Firebase location update failed:', error);
+      }
+    }
+
     return result.data;
   }
 
   async toggleAvailability(available, location = null) {
     // Check if this is a mock user
     const driverId = global.user?.id || this.userId;
-    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-'));
+    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-') || driverId === 1);
     
-    // For mock users, return immediately without API call
+    // For mock users, just return success
     if (this.mockMode || isMockUser) {
-      console.log('✅ Mock user availability toggle:', { available, location });
-      return { available, location };
+      console.log('✅ Mock user availability toggle:', available);
+      return { success: true, available };
     }
     
-    try {
-      if (!driverId) {
-        throw new Error('Driver ID not found. Please login again.');
-      }
-
-      const body = { available };
-      if (location) body.location = location;
-      
-      const result = await this.request(`/drivers/${driverId}/availability`, {
-        method: 'PATCH',
-        body: JSON.stringify(body)
-      });
-      
-      // Also emit to socket for real-time updates
-      if (this.socket) {
-        this.socket.emit('driver:availability', { available, location });
-      }
-      
-      return result.data || result;
-    } catch (error) {
-      console.error('Error toggling availability:', error);
-      throw error;
+    if (!driverId) {
+      throw new Error('Driver ID not found. Please login again.');
     }
+    
+    const payload = { available };
+    if (location) {
+      payload.location = location;
+    }
+    
+    const result = await this.request(`/drivers/${driverId}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+    
+    // Emit to socket
+    if (this.socket) {
+      this.socket.emit('driver:availability', { driverId, available });
+    }
+    
+    return result.data;
   }
 
   // Earnings and financial methods
   async getEarningsData(period = 'week') {
     // Check if this is a mock user
     const driverId = global.user?.id || this.userId;
-    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-'));
+    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-') || driverId === 1);
     
     // For mock users or mock mode, return mock data
     if (this.mockMode || isMockUser) {
@@ -538,7 +681,7 @@ class ApiService {
   async getDriverStats() {
     // Check if this is a mock user
     const driverId = global.user?.id || this.userId;
-    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-'));
+    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-') || driverId === 1);
     
     // For mock users or mock mode, return mock data
     if (this.mockMode || isMockUser) {
@@ -563,7 +706,7 @@ class ApiService {
   async getCurrentRide() {
     // Check if this is a mock user
     const driverId = global.user?.id || this.userId;
-    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-'));
+    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-') || driverId === 1);
     
     // For mock users or mock mode, return mock data
     if (this.mockMode || isMockUser) {
@@ -581,7 +724,7 @@ class ApiService {
   async getAvailableRides() {
     // Check if this is a mock user
     const driverId = global.user?.id || this.userId;
-    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-'));
+    const isMockUser = driverId && (driverId === 'mock-driver' || driverId.startsWith('mock-driver-') || driverId === 1);
     
     // For mock users or mock mode, return mock data
     if (this.mockMode || isMockUser) {
@@ -694,14 +837,41 @@ class ApiService {
     return {
       isOnline: this.isOnline,
       hasToken: !!this.token,
-      socketConnected: this.socket?.connected || false
+      socketConnected: this.socket?.connected || false,
+      firebaseConnected: !!this.firebaseIntegration?.isInitialized,
+      mockMode: this.mockMode
     };
   }
 
-  // Socket event emitter (for app state management)
+  // Event emitter (for app state management)
   emit(event, data) {
-    // This can be connected to your app's event system
+    // Log the event
     console.log(`📡 Emitting event: ${event}`, data);
+    
+    // Call registered callbacks
+    if (this.eventCallbacks[event]) {
+      this.eventCallbacks[event].forEach(callback => callback(data));
+    }
+    
+    // Also emit to Firebase if available
+    if (this.firebaseIntegration) {
+      this.firebaseIntegration.emit(event, data);
+    }
+  }
+
+  // Register event callbacks
+  on(event, callback) {
+    if (!this.eventCallbacks[event]) {
+      this.eventCallbacks[event] = [];
+    }
+    this.eventCallbacks[event].push(callback);
+  }
+
+  // Remove event callback
+  off(event, callback) {
+    if (this.eventCallbacks[event]) {
+      this.eventCallbacks[event] = this.eventCallbacks[event].filter(cb => cb !== callback);
+    }
   }
 }
 

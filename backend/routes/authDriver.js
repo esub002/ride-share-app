@@ -5,8 +5,12 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const rateLimit = require('express-rate-limit');
+const { OAuth2Client } = require('google-auth-library');
 // const sendEmail = require('../utils/email'); // Commented out email functionality
 const router = express.Router();
+
+// Initialize Google OAuth2 client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Use env var in production
 
@@ -219,5 +223,245 @@ router.post('/login', [
   res.json({ token });
 });
 */
+
+// Google Sign-In endpoints
+/**
+ * @swagger
+ * /api/auth/driver/google-signin:
+ *   post:
+ *     summary: Sign in existing driver with Google
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firebaseUid:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               displayName:
+ *                 type: string
+ *               photoURL:
+ *                 type: string
+ *               idToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Driver signed in successfully
+ *       404:
+ *         description: Driver not found
+ */
+
+/**
+ * @swagger
+ * /api/auth/driver/google-signup:
+ *   post:
+ *     summary: Register new driver with Google
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firebaseUid:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               displayName:
+ *                 type: string
+ *               photoURL:
+ *                 type: string
+ *               idToken:
+ *                 type: string
+ *               driverProfile:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Driver registered successfully
+ *       409:
+ *         description: Driver already exists
+ */
+
+// Check if driver exists by email
+router.get('/check-email', async (req, res) => {
+  const { email } = req.query;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email parameter is required' });
+  }
+  
+  try {
+    // For now, use mock data - in production, check database
+    const mockDrivers = [
+      { email: 'test@example.com', exists: true },
+      { email: 'driver@example.com', exists: true }
+    ];
+    
+    const driver = mockDrivers.find(d => d.email === email);
+    const exists = driver ? driver.exists : false;
+    
+    console.log(`Checking email existence: ${email} - ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+    
+    res.json({ 
+      success: true,
+      data: { exists }
+    });
+  } catch (err) {
+    console.error('Error checking email:', err);
+    res.status(500).json({ error: 'Failed to check email' });
+  }
+});
+
+// Google Sign-In for existing users
+router.post('/google-signin', [
+  body('firebaseUid').notEmpty().withMessage('Firebase UID is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('displayName').optional().isString(),
+  body('photoURL').optional().isURL(),
+  body('idToken').notEmpty().withMessage('ID token is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  
+  const { firebaseUid, email, displayName, photoURL, idToken, googleUser } = req.body;
+  
+  try {
+    // Verify Google ID token (in production, use google-auth-library)
+    // For now, we'll trust the token from the client
+    
+    // Check if driver exists in database
+    // For testing, use mock data
+    const mockDriver = {
+      id: 'google-driver-' + Date.now(),
+      firebaseUid: firebaseUid,
+      email: email,
+      name: displayName || googleUser?.name || 'Google Driver',
+      photoURL: photoURL || googleUser?.photo,
+      phone: null,
+      car_info: null,
+      isActive: true,
+      registrationDate: new Date().toISOString(),
+      lastLogin: new Date().toISOString()
+    };
+    
+    console.log(`Google Sign-In successful: ${mockDriver.name} (${email})`);
+    
+    // Generate JWT token
+    const token = jwt.sign({ 
+      driverId: mockDriver.id, 
+      role: 'driver',
+      email: mockDriver.email,
+      firebaseUid: mockDriver.firebaseUid
+    }, JWT_SECRET, { expiresIn: '7d' });
+    
+    res.json({ 
+      success: true,
+      token,
+      user: {
+        id: mockDriver.id,
+        firebaseUid: mockDriver.firebaseUid,
+        email: mockDriver.email,
+        name: mockDriver.name,
+        photoURL: mockDriver.photoURL,
+        phone: mockDriver.phone,
+        car_info: mockDriver.car_info,
+        isActive: mockDriver.isActive,
+        registrationDate: mockDriver.registrationDate,
+        lastLogin: mockDriver.lastLogin
+      }
+    });
+    
+  } catch (err) {
+    console.error('Error in Google Sign-In:', err);
+    res.status(500).json({ error: 'Failed to sign in with Google' });
+  }
+});
+
+// Google Sign-Up for new users
+router.post('/google-signup', [
+  body('firebaseUid').notEmpty().withMessage('Firebase UID is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('displayName').optional().isString(),
+  body('photoURL').optional().isURL(),
+  body('idToken').notEmpty().withMessage('ID token is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  
+  const { firebaseUid, email, displayName, photoURL, idToken, googleUser, driverProfile } = req.body;
+  
+  try {
+    // Verify Google ID token (in production, use google-auth-library)
+    // For now, we'll trust the token from the client
+    
+    // Check if driver already exists
+    // For testing, use mock data
+    const existingDrivers = [
+      { email: 'test@example.com' },
+      { email: 'driver@example.com' }
+    ];
+    
+    const exists = existingDrivers.some(d => d.email === email);
+    if (exists) {
+      return res.status(409).json({ 
+        success: false,
+        error: 'Driver with this email already exists' 
+      });
+    }
+    
+    // Create new driver
+    const newDriver = {
+      id: 'google-driver-' + Date.now(),
+      firebaseUid: firebaseUid,
+      email: email,
+      name: displayName || googleUser?.name || 'New Google Driver',
+      photoURL: photoURL || googleUser?.photo,
+      phone: null,
+      car_info: null,
+      isActive: true,
+      registrationDate: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      profileComplete: false,
+      ...driverProfile
+    };
+    
+    console.log(`Google Sign-Up successful: ${newDriver.name} (${email})`);
+    
+    // Generate JWT token
+    const token = jwt.sign({ 
+      driverId: newDriver.id, 
+      role: 'driver',
+      email: newDriver.email,
+      firebaseUid: newDriver.firebaseUid
+    }, JWT_SECRET, { expiresIn: '7d' });
+    
+    res.json({ 
+      success: true,
+      token,
+      user: {
+        id: newDriver.id,
+        firebaseUid: newDriver.firebaseUid,
+        email: newDriver.email,
+        name: newDriver.name,
+        photoURL: newDriver.photoURL,
+        phone: newDriver.phone,
+        car_info: newDriver.car_info,
+        isActive: newDriver.isActive,
+        registrationDate: newDriver.registrationDate,
+        lastLogin: newDriver.lastLogin,
+        profileComplete: newDriver.profileComplete
+      }
+    });
+    
+  } catch (err) {
+    console.error('Error in Google Sign-Up:', err);
+    res.status(500).json({ error: 'Failed to sign up with Google' });
+  }
+});
 
 module.exports = router;

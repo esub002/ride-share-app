@@ -81,79 +81,92 @@ export default function DriverHome({ navigation }) {
     return earnings.today + earnings.week + earnings.month;
   }, [earnings]);
 
-  // Initialize component
+  // Initialize component with better error handling
   useEffect(() => {
+    console.log('🚀 DriverHome: Starting initialization...');
     initializeApp();
     startAnimations();
   }, []);
 
   // Start entrance animations
   const startAnimations = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    console.log('🎬 DriverHome: Starting animations...');
+    try {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-    // Start pulse animation for online status
-    if (isAvailable) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
+      // Start pulse animation for online status
+      if (isAvailable) {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1.1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      }
+    } catch (error) {
+      console.error('❌ DriverHome: Animation error:', error);
     }
   };
 
   // Listen for real-time updates
   useEffect(() => {
+    console.log('🔌 DriverHome: Setting up real-time listeners...');
     const setupRealTimeListeners = () => {
-      // Listen for new ride requests
-      apiService.socket?.on('ride:request', (newRideRequest) => {
-        console.log('🚗 New ride request received:', newRideRequest);
-        setRideRequests(prev => [newRideRequest, ...prev]);
-        setCurrentRideRequest(newRideRequest);
-        setShowRideRequests(true);
-      });
+      try {
+        // Listen for new ride requests
+        apiService.socket?.on('ride:request', (newRideRequest) => {
+          console.log('🚗 New ride request received:', newRideRequest);
+          setRideRequests(prev => [newRideRequest, ...prev]);
+          setCurrentRideRequest(newRideRequest);
+          setShowRideRequests(true);
+        });
 
-      // Listen for ride status updates
-      apiService.socket?.on('ride:statusUpdate', (update) => {
-        console.log('📊 Ride status updated:', update);
-        if (update.rideId === currentRide?.id) {
-          setCurrentRide(prev => ({ ...prev, status: update.status }));
-        }
-      });
+        // Listen for ride status updates
+        apiService.socket?.on('ride:statusUpdate', (update) => {
+          console.log('📊 Ride status updated:', update);
+          if (update.rideId === currentRide?.id) {
+            setCurrentRide(prev => ({ ...prev, status: update.status }));
+          }
+        });
 
-      // Listen for network status changes
-      const status = apiService.getStatus();
-      setIsOnline(status.isOnline);
+        // Listen for network status changes
+        const status = apiService.getStatus();
+        setIsOnline(status.isOnline);
+      } catch (error) {
+        console.error('❌ DriverHome: Real-time listener error:', error);
+      }
     };
 
     setupRealTimeListeners();
   }, [currentRide]);
 
   const initializeApp = async () => {
+    console.log('🔧 DriverHome: Initializing app...');
     try {
       setLoading(true);
       setError(null);
 
       // Initialize API service
+      console.log('🔧 DriverHome: Initializing API service...');
       await apiService.init();
 
       // Get user profile - handle both real and mock users
@@ -164,11 +177,12 @@ export default function DriverHome({ navigation }) {
           setUser(global.user);
         } else {
           // Try to get from API (for real users)
+          console.log('🔧 DriverHome: Fetching user profile from API...');
           const userProfile = await apiService.getDriverProfile();
           setUser(userProfile);
         }
       } catch (error) {
-        console.error('Failed to load user profile:', error);
+        console.error('❌ DriverHome: Failed to load user profile:', error);
         // Use fallback user data for mock users or when API fails
         const fallbackUser = {
           id: global.user?.id || 'mock-driver',
@@ -185,9 +199,11 @@ export default function DriverHome({ navigation }) {
       }
 
       // Request location permissions
+      console.log('🔧 DriverHome: Requesting location permissions...');
       await requestLocationPermission();
 
       // Load initial data (with better error handling)
+      console.log('🔧 DriverHome: Loading initial data...');
       try {
         await Promise.all([
           loadEarnings(),
@@ -196,46 +212,60 @@ export default function DriverHome({ navigation }) {
           loadDriverStats()
         ]);
       } catch (dataError) {
-        console.error('Error loading initial data:', dataError);
+        console.error('❌ DriverHome: Error loading initial data:', dataError);
         // Don't fail the entire app for data loading errors
       }
 
       // Automatically go online after login and location permission (only for real users)
       if (!isAvailable && global.user?.id && global.user.id !== 'mock-driver') {
         try {
+          console.log('🔧 DriverHome: Going online automatically...');
           await goOnline();
         } catch (onlineError) {
-          console.error('Error going online:', onlineError);
+          console.error('❌ DriverHome: Error going online:', onlineError);
           // Don't fail the app for online status errors
         }
       }
 
     } catch (error) {
-      console.error('App initialization error:', error);
+      console.error('❌ DriverHome: App initialization error:', error);
       setError('Failed to initialize app. Please try again.');
     } finally {
       setLoading(false);
+      console.log('✅ DriverHome: Initialization complete');
     }
+  };
+
+  const toggleOnlineStatus = () => {
+    setIsOnline(!isOnline);
+  };
+
+  const handleLogout = () => {
+    global.user = null;
+    navigation.replace('Login');
   };
 
   // Request location permission
   const requestLocationPermission = async () => {
+    console.log('🔧 DriverHome: Requesting location permission...');
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         setLocationPermission(true);
         await getCurrentLocation();
       } else {
+        console.warn('⚠️ DriverHome: Location permission denied');
         setError('Location permission is required for this app to function properly.');
       }
     } catch (error) {
-      console.error('Location permission error:', error);
+      console.error('❌ DriverHome: Location permission error:', error);
       setError('Failed to get location permission.');
     }
   };
 
   // Get current location
   const getCurrentLocation = async () => {
+    console.log('🔧 DriverHome: Getting current location...');
     try {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
@@ -247,27 +277,29 @@ export default function DriverHome({ navigation }) {
       };
       
       setCurrentLocation(newLocation);
+      console.log('✅ DriverHome: Location obtained:', newLocation);
       
       // Update location on server (only for real users)
       if (user && user.id && !user.id.startsWith('mock-driver')) {
         try {
           await apiService.updateDriverLocation(newLocation.latitude, newLocation.longitude);
         } catch (locationError) {
-          console.error('Error updating location on server:', locationError);
+          console.error('❌ DriverHome: Error updating location on server:', locationError);
           // Don't fail for location update errors
         }
       }
     } catch (error) {
-      console.error('Location error:', error);
+      console.error('❌ DriverHome: Location error:', error);
       // Don't set error for location issues as they're not critical
     }
   };
 
   // Load earnings data
   const loadEarnings = async () => {
+    console.log('🔧 DriverHome: Loading earnings data...');
     try {
       const earningsData = await apiService.getEarningsData('week');
-      console.log('Earnings data:', earningsData);
+      console.log('✅ DriverHome: Earnings data:', earningsData);
       // Handle both API response format and direct mock data
       if (earningsData && typeof earningsData === 'object') {
         setEarnings(earningsData);
@@ -275,7 +307,7 @@ export default function DriverHome({ navigation }) {
         setEarnings({ today: 0, week: 0, month: 0 });
       }
     } catch (error) {
-      console.error('Error loading earnings:', error);
+      console.error('❌ DriverHome: Error loading earnings:', error);
       // Use default earnings if API fails
       setEarnings({ today: 0, week: 0, month: 0 });
     }
@@ -283,9 +315,10 @@ export default function DriverHome({ navigation }) {
 
   // Load current ride
   const loadCurrentRide = async () => {
+    console.log('🔧 DriverHome: Loading current ride...');
     try {
       const currentRideData = await apiService.getCurrentRide();
-      console.log('Current ride data:', currentRideData);
+      console.log('✅ DriverHome: Current ride data:', currentRideData);
       // Handle both API response format and direct mock data
       if (currentRideData && typeof currentRideData === 'object') {
         setCurrentRide(currentRideData);
@@ -293,16 +326,17 @@ export default function DriverHome({ navigation }) {
         setCurrentRide(null);
       }
     } catch (error) {
-      console.error('Error loading current ride:', error);
+      console.error('❌ DriverHome: Error loading current ride:', error);
       setCurrentRide(null);
     }
   };
 
   // Load ride requests
   const loadRideRequests = async () => {
+    console.log('🔧 DriverHome: Loading ride requests...');
     try {
       const requests = await apiService.getAvailableRides();
-      console.log('Ride requests data:', requests);
+      console.log('✅ DriverHome: Ride requests data:', requests);
       // Handle both API response format and direct mock data
       if (requests && Array.isArray(requests)) {
         setRideRequests(requests);
@@ -310,16 +344,17 @@ export default function DriverHome({ navigation }) {
         setRideRequests([]);
       }
     } catch (error) {
-      console.error('Error loading ride requests:', error);
+      console.error('❌ DriverHome: Error loading ride requests:', error);
       setRideRequests([]);
     }
   };
 
   // Load driver stats
   const loadDriverStats = async () => {
+    console.log('🔧 DriverHome: Loading driver stats...');
     try {
       const stats = await apiService.getDriverStats();
-      console.log('Driver stats:', stats);
+      console.log('✅ DriverHome: Driver stats:', stats);
       // Handle both API response format and direct mock data
       if (stats && typeof stats === 'object') {
         setDriverStats(stats);
@@ -332,7 +367,7 @@ export default function DriverHome({ navigation }) {
         });
       }
     } catch (error) {
-      console.error('Error loading driver stats:', error);
+      console.error('❌ DriverHome: Error loading driver stats:', error);
       setDriverStats({
         totalRides: 1250,
         rating: 4.8,
@@ -344,6 +379,7 @@ export default function DriverHome({ navigation }) {
 
   // Handler to go online (accepting rides)
   const goOnline = async () => {
+    console.log('🔧 DriverHome: Going online...');
     try {
       // Check if user is authenticated
       if (!global.user?.id) {
@@ -377,7 +413,7 @@ export default function DriverHome({ navigation }) {
       setIsAvailable(true);
       Alert.alert('Success', 'You are now online and ready to accept rides!');
     } catch (error) {
-      console.error('Error going online:', error);
+      console.error('❌ DriverHome: Error going online:', error);
       if (error.message?.includes('Driver ID not found') || error.message?.includes('Invalid token')) {
         Alert.alert(
           'Authentication Error', 
@@ -404,6 +440,7 @@ export default function DriverHome({ navigation }) {
 
   // Toggle availability
   const toggleAvailability = async () => {
+    console.log('🔧 DriverHome: Toggling availability...');
     try {
       // Check if user is authenticated
       if (!global.user?.id) {
@@ -479,7 +516,7 @@ export default function DriverHome({ navigation }) {
         pulseAnim.setValue(1);
       }
     } catch (error) {
-      console.error('Error updating availability:', error);
+      console.error('❌ DriverHome: Error updating availability:', error);
       if (error.message?.includes('Driver ID not found') || error.message?.includes('Invalid token')) {
         Alert.alert(
           'Authentication Error', 
@@ -503,6 +540,7 @@ export default function DriverHome({ navigation }) {
 
   // Handle ride acceptance
   const handleRideAccepted = (rideRequest) => {
+    console.log('✅ DriverHome: Ride accepted:', rideRequest);
     setCurrentRide(rideRequest);
     setRideRequests(prev => prev.filter(ride => ride.id !== rideRequest.id));
     setCurrentRideRequest(null);
@@ -521,6 +559,7 @@ export default function DriverHome({ navigation }) {
 
   // Handle ride rejection
   const handleRideRejected = (rideRequest) => {
+    console.log('❌ DriverHome: Ride rejected:', rideRequest);
     setRideRequests(prev => prev.filter(ride => ride.id !== rideRequest.id));
     setCurrentRideRequest(null);
     setShowRideRequests(false);
@@ -528,6 +567,7 @@ export default function DriverHome({ navigation }) {
 
   // Complete ride
   const completeRide = async () => {
+    console.log('🔧 DriverHome: Completing ride...');
     try {
       setLoading(true);
       await apiService.completeRide(currentRide.id);
@@ -535,7 +575,7 @@ export default function DriverHome({ navigation }) {
       await loadEarnings(); // Refresh earnings
       Alert.alert('Success', 'Ride completed successfully!');
     } catch (error) {
-      console.error('Error completing ride:', error);
+      console.error('❌ DriverHome: Error completing ride:', error);
       Alert.alert('Error', 'Failed to complete ride. Please try again.');
     } finally {
       setLoading(false);
@@ -564,7 +604,7 @@ export default function DriverHome({ navigation }) {
       try {
         apiService.updateDriverLocation(location.latitude, location.longitude);
       } catch (error) {
-        console.error('Error updating location:', error);
+        console.error('❌ DriverHome: Error updating location:', error);
         // Don't fail for location update errors
       }
     }
@@ -572,6 +612,7 @@ export default function DriverHome({ navigation }) {
 
   // Refresh data
   const onRefresh = useCallback(async () => {
+    console.log('🔧 DriverHome: Refreshing data...');
     setRefreshing(true);
     try {
       await Promise.all([
@@ -581,44 +622,11 @@ export default function DriverHome({ navigation }) {
         loadDriverStats()
       ]);
     } catch (error) {
-      console.error('Refresh error:', error);
+      console.error('❌ DriverHome: Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
   }, []);
-
-  // Logout function
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear token and user data
-              apiService.clearToken();
-              global.user = null;
-              global.token = null;
-              
-              // Navigate back to login by going to the root navigator
-              navigation.navigate('Login');
-            } catch (error) {
-              console.error('Logout error:', error);
-              // If navigation fails, just clear the data and let the app handle it
-              Alert.alert('Logged Out', 'You have been logged out successfully.');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   if (loading) {
     return (
@@ -689,7 +697,7 @@ export default function DriverHome({ navigation }) {
                     <Text style={styles.vehicleInfo}>{user?.car || 'Vehicle'}</Text>
                   </View>
                 </View>
-                
+
                 {/* Status Indicator */}
                 <Animated.View 
                   style={[
@@ -1011,55 +1019,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.light.background,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.large,
-    backgroundColor: Colors.light.background,
   },
   errorCard: {
-    padding: Spacing.large,
+    padding: 20,
+    borderRadius: 12,
+    backgroundColor: Colors.light.surface,
     alignItems: 'center',
   },
   errorText: {
-    ...Typography.body,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-    marginVertical: Spacing.medium,
+    fontSize: 16,
+    color: Colors.light.text,
+    marginBottom: 20,
   },
   retryButton: {
-    marginTop: Spacing.medium,
+    padding: 12,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#ffffff',
+    paddingVertical: 16,
+    backgroundColor: Colors.light.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderBottomColor: Colors.light.border,
   },
   headerLeft: {
     flex: 1,
@@ -1067,15 +1059,26 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 2,
+    color: Colors.light.text,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6c757d',
+    color: Colors.light.textSecondary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
   },
   headerCard: {
-    margin: Spacing.base,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   headerContent: {
     flexDirection: 'row',
@@ -1087,29 +1090,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.full,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.light.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.sm,
   },
   userDetails: {
-    marginLeft: Spacing.base,
+    marginLeft: 12,
   },
   welcomeText: {
-    ...Typography.caption,
+    fontSize: 14,
     color: Colors.light.textSecondary,
-    marginBottom: Spacing.xs,
   },
   driverName: {
-    ...Typography.h2,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: Colors.light.text,
-    marginBottom: Spacing.xs,
   },
   vehicleInfo: {
-    ...Typography.caption,
+    fontSize: 14,
     color: Colors.light.textSecondary,
   },
   statusIndicator: {
@@ -1117,32 +1118,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: BorderRadius.full,
-    marginRight: Spacing.sm,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
   },
   statusText: {
-    ...Typography.caption,
-    fontWeight: FontWeight.semiBold,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
   },
   earningsCard: {
-    margin: Spacing.base,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   earningsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.base,
+    marginBottom: 12,
   },
   earningsTitle: {
-    ...Typography.body,
-    color: Colors.light.textSecondary,
-    marginLeft: Spacing.sm,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+    marginLeft: 8,
   },
   earningsAmount: {
-    ...Typography.h1,
-    color: Colors.light.success,
-    marginBottom: Spacing.base,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: Colors.light.primary,
+    marginBottom: 16,
   },
   earningsBreakdown: {
     flexDirection: 'row',
@@ -1152,41 +1161,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   earningsLabel: {
-    ...Typography.caption,
+    fontSize: 14,
     color: Colors.light.textSecondary,
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
   earningsValue: {
-    ...Typography.body,
-    fontWeight: FontWeight.semiBold,
-    color: Colors.light.success,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
   },
   statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    margin: Spacing.base,
-    gap: Spacing.sm,
   },
   statCard: {
-    flex: 1,
+    width: '48%',
     alignItems: 'center',
-    padding: Spacing.base,
+    paddingVertical: 12,
   },
   statValue: {
-    ...Typography.h3,
-    color: Colors.light.text,
-    marginVertical: Spacing.sm,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.light.primary,
+    marginBottom: 4,
   },
   statLabel: {
-    ...Typography.caption,
+    fontSize: 12,
     color: Colors.light.textSecondary,
+    textAlign: 'center',
   },
   availabilityCard: {
-    margin: Spacing.base,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   availabilityCardOffline: {
-    backgroundColor: Colors.light.surfaceSecondary,
-    borderColor: Colors.light.error,
+    backgroundColor: Colors.light.surface + '10',
   },
   availabilityContent: {
     flexDirection: 'row',
@@ -1198,162 +1212,163 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   availabilityText: {
-    marginLeft: Spacing.base,
+    marginLeft: 12,
   },
   availabilityTitle: {
-    ...Typography.body,
-    fontWeight: FontWeight.semiBold,
+    fontSize: 16,
+    fontWeight: 'bold',
     color: Colors.light.text,
-    marginBottom: Spacing.xs,
   },
   availabilityTitleOffline: {
-    color: Colors.light.error,
-  },
-  availabilitySubtitle: {
-    ...Typography.caption,
     color: Colors.light.textSecondary,
   },
+  availabilitySubtitle: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+  },
+  goOnlineButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.light.success,
+  },
+  goOnlineButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   currentRideCard: {
-    margin: Spacing.base,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   currentRideHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.base,
+    marginBottom: 12,
   },
   currentRideTitle: {
-    ...Typography.h3,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: Colors.light.text,
-    marginLeft: Spacing.sm,
   },
   rideInfo: {
-    marginBottom: Spacing.base,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   rideInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
   },
   rideInfoText: {
-    ...Typography.body,
+    fontSize: 14,
     color: Colors.light.textSecondary,
-    marginLeft: Spacing.sm,
   },
   rideActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: Spacing.base,
   },
   navigationButton: {
-    marginRight: Spacing.base,
+    padding: 12,
   },
   completeButton: {
-    marginTop: Spacing.base,
+    padding: 12,
   },
   rideRequestsCard: {
-    margin: Spacing.base,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   rideRequestsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.base,
   },
   rideRequestsTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   rideRequestsTitle: {
-    ...Typography.h3,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: Colors.light.text,
-    marginLeft: Spacing.sm,
   },
   rideRequestPreview: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.base,
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
   },
   rideRequestInfo: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   rideRequestText: {
-    ...Typography.body,
-    color: Colors.light.textSecondary,
-    marginBottom: Spacing.xs,
+    fontSize: 14,
+    color: Colors.light.text,
   },
   rideRequestTime: {
-    ...Typography.caption,
-    color: Colors.light.textTertiary,
+    fontSize: 12,
+    color: Colors.light.textSecondary,
   },
   rideRequestFare: {
-    ...Typography.body,
-    fontWeight: FontWeight.semiBold,
-    color: Colors.light.success,
+    fontSize: 14,
+    color: Colors.light.textSecondary,
   },
   mapCard: {
-    margin: Spacing.base,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   mapHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.base,
+    marginBottom: 12,
   },
   mapTitle: {
-    ...Typography.h3,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: Colors.light.text,
-    marginLeft: Spacing.sm,
   },
   map: {
-    height: 300,
-    borderRadius: BorderRadius.md,
+    flex: 1,
+    borderRadius: 12,
   },
   driverMarker: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: BorderRadius.full,
-    padding: Spacing.xs,
-    borderWidth: 2,
-    borderColor: Colors.light.primary,
-    ...Shadows.sm,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.light.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Spacing.base,
-    marginTop: Spacing.base,
   },
   actionButton: {
-    backgroundColor: Colors.light.surface,
-    padding: Spacing.base,
-    borderRadius: BorderRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
-    ...Shadows.sm,
+    padding: 12,
   },
   actionIcon: {
-    marginRight: Spacing.sm,
+    marginRight: 8,
   },
   actionButtonText: {
-    ...Typography.caption,
+    fontSize: 14,
     color: Colors.light.textSecondary,
-  },
-  goOnlineButton: {
-    backgroundColor: Colors.light.success,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...Shadows.sm,
-  },
-  goOnlineButtonText: {
-    ...Typography.caption,
-    color: '#fff',
-    marginLeft: Spacing.sm,
-    fontWeight: 'bold',
   },
 });

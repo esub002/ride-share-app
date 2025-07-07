@@ -11,6 +11,7 @@ import {
   Image,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import apiService from './utils/api';
@@ -21,6 +22,10 @@ import Button from './components/ui/Button';
 import Input from './components/ui/Input';
 import Card from './components/ui/Card';
 import PhoneInput from 'react-native-phone-number-input';
+import firebaseServiceManager from './firebase';
+import googleSignInService from './utils/googleSignInService';
+import firebaseAuthService from './utils/firebaseAuthService';
+import phoneAuthFallback from './utils/phoneAuthFallback';
 
 export default function LoginScreen({ onLogin }) {
   const [step, setStep] = useState('phone'); // 'phone' or 'otp'
@@ -35,6 +40,8 @@ export default function LoginScreen({ onLogin }) {
   const [backendStatus, setBackendStatus] = useState('checking');
   const [formattedPhone, setFormattedPhone] = useState("");
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const [verificationId, setVerificationId] = useState("");
+  const [authMethod, setAuthMethod] = useState('firebase'); // 'firebase' or 'backend'
   
   const phoneInputRef = useRef(null);
   const otpInputRef = useRef(null);
@@ -65,86 +72,182 @@ export default function LoginScreen({ onLogin }) {
       }
     };
 
+    const initializeGoogleSignIn = async () => {
+      try {
+        // Initialize Google Sign-In service
+        await googleSignInService.initialize();
+      } catch (error) {
+        console.error('Google Sign-In initialization error:', error);
+      }
+    };
+
+    // Initialize both services
     initializeApp();
+    initializeGoogleSignIn();
   }, []);
 
   const handleSendOTP = useCallback(async () => {
-    console.log('🔵 Send OTP button pressed');
-    console.log('📱 Phone:', phone);
-    console.log('📱 Formatted phone:', formattedPhone);
-    
-    // Simplified validation - just check if we have a phone number
+    setError("");
     if (!formattedPhone || formattedPhone.length < 10) {
-      console.log('❌ Phone validation failed');
       setError('Please enter a valid phone number');
       return;
     }
-    
+    setLoading(true);
     try {
-      console.log('✅ Phone validation passed, proceeding to OTP step');
-      console.log('🧪 Using test OTP flow - no API call needed');
-      setLoading(true);
-      setError('');
+      console.log('📱 Sending OTP to:', formattedPhone);
       
-      // Simulate a brief loading state for better UX
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Try Firebase first, fallback to backend
+      let result;
       
-      // Skip API call and go directly to OTP step
-      setStep('otp');
-      // Automatically fill test OTP
-      setOtp("123456");
-      console.log('✅ Test OTP filled: 123456');
+      try {
+        // Try Firebase phone auth
+        result = await firebaseAuthService.signInWithPhone(formattedPhone);
+        setAuthMethod('firebase');
+        console.log('✅ Using Firebase phone auth');
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase phone auth failed, trying backend:', firebaseError);
+        
+        // Fallback to backend API
+        result = await phoneAuthFallback.sendOTP(formattedPhone);
+        setAuthMethod('backend');
+        console.log('✅ Using backend phone auth');
+      }
       
-      // Immediate auto-login for instant access
-      setIsAutoLoggingIn(true);
-      console.log('🚀 Immediate auto-login starting...');
-      
-      const mockLoginData = {
-        token: 'mock-token-' + Date.now(),
-        driver: {
-          id: 'mock-driver-' + Date.now(),
-          name: name || 'Demo Driver',
-          phone: formattedPhone,
-          car_info: carInfo || 'Demo Car',
-          email: 'demo@driver.com',
-        }
-      };
-      
-      console.log('✅ Immediate mock login successful:', mockLoginData);
-      onLogin(mockLoginData.token, mockLoginData.driver);
-      
-    } catch (error) {
-      console.error('Error in OTP flow:', error);
-      setError('Error in OTP flow. Please try again.');
-      setIsAutoLoggingIn(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [formattedPhone, phone, name, carInfo, onLogin]);
-
-  const handleVerifyOTP = useCallback(async () => {
-    if (!isOTPValid()) return;
-    
-    try {
-      console.log('Verifying OTP for:', formattedPhone);
-      setLoading(true);
-      setError('');
-      
-      const loginData = await apiService.loginDriver(formattedPhone, otp, name, carInfo);
-      console.log('Login response:', loginData);
-      
-      if (loginData.token && loginData.driver) {
-        onLogin(loginData.token, loginData.driver);
+      if (result.success && result.verificationId) {
+        setVerificationId(result.verificationId);
+        setStep('otp');
+        console.log('✅ OTP sent successfully via', authMethod);
       } else {
-        setError('Invalid OTP or login failed');
+        setError(result.error || 'Failed to send OTP');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      setError('Network error. Please try again.');
+      console.error('❌ Error sending OTP:', error);
+      setError(error.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
-  }, [formattedPhone, otp, name, carInfo, onLogin, isOTPValid]);
+  }, [formattedPhone, authMethod]);
+
+  const handleVerifyOTP = useCallback(async () => {
+    setError("");
+    if (!isOTPValid()) return;
+    setLoading(true);
+    try {
+      console.log('🔐 Verifying OTP via', authMethod);
+      
+      let result;
+      
+      if (authMethod === 'firebase') {
+        // Use Firebase auth
+        result = await firebaseAuthService.verifyOTP(verificationId, otp);
+      } else {
+        // Use backend auth
+        result = await phoneAuthFallback.verifyOTP(verificationId, otp, {
+          name: name || 'Driver',
+          carInfo: carInfo || 'Vehicle'
+        });
+      }
+      
+      if (result.success && result.user) {
+        console.log('✅ OTP verification successful');
+        
+        // Store user globally and set API token
+        global.user = result.user;
+        if (result.token) {
+          apiService.setToken(result.token);
+        }
+        
+        onLogin(result.user.uid, result.user);
+      } else {
+        setError(result.error || 'Invalid OTP or login failed');
+      }
+    } catch (error) {
+      console.error('❌ Error verifying OTP:', error);
+      setError(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  }, [verificationId, otp, onLogin, authMethod, name, carInfo]);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    setError("");
+    setLoading(true);
+    try {
+      console.log('🔄 Starting Google Sign-In process...');
+      
+      const result = await googleSignInService.signIn();
+      
+      if (result.success) {
+        console.log('✅ Google Sign-In successful:', result.message);
+        
+        // Store user globally and set API token
+        global.user = result.user;
+        if (result.token) {
+          apiService.setToken(result.token);
+        }
+        
+        if (result.isNewUser) {
+          // New user - show welcome message and redirect to profile setup
+          Alert.alert(
+            'Welcome! 🎉',
+            result.message,
+            [
+              {
+                text: 'Complete Profile',
+                onPress: () => {
+                  // Navigate to profile setup or complete login
+                  onLogin(result.user.firebaseUid, result.user);
+                }
+              }
+            ]
+          );
+        } else {
+          // Existing user - complete login
+          onLogin(result.user.firebaseUid, result.user);
+        }
+      } else {
+        console.error('❌ Google Sign-In failed:', result.error);
+        
+        // Handle specific error cases
+        if (result.code === 'CANCELLED') {
+          setError('Sign-in was cancelled');
+        } else if (result.code === 'PLAY_SERVICES_ERROR') {
+          setError('Google Play Services not available. Please update Google Play Services.');
+        } else if (result.code === 'BACKEND_ERROR') {
+          setError('Server error. Please try again later.');
+        } else {
+          setError(result.error || 'Google Sign-In failed');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Unexpected error during Google Sign-In:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [onLogin]);
+
+  const handleTestLogin = useCallback(() => {
+    // Simulate successful login for testing
+    const mockUser = {
+      id: 1,
+      uid: 'test-user-' + Date.now(),
+      phoneNumber: formattedPhone || '+1234567890',
+      displayName: 'Test Driver',
+      name: 'Test Driver',
+      email: 'test@example.com',
+      car: 'Demo Car',
+      rating: 4.8,
+      totalRides: 1250,
+      totalEarnings: 15420.50
+    };
+    console.log('🧪 Test login with user:', mockUser);
+    
+    // Store user globally
+    global.user = mockUser;
+    
+    onLogin(mockUser.uid, mockUser);
+  }, [formattedPhone, onLogin]);
 
   const isPhoneValid = () => {
     return phoneInputRef.current?.isValidNumber(phone) && formattedPhone.length > 0;
@@ -166,6 +269,7 @@ export default function LoginScreen({ onLogin }) {
     setCarInfo("");
     setError("");
     setIsNewUser(false);
+    setAuthMethod('firebase');
   };
 
   if (isLoading) {
@@ -210,12 +314,13 @@ export default function LoginScreen({ onLogin }) {
           leftIcon="checkmark-circle"
         >
           <Text style={styles.statusText}>
-            🔗 Connected to Backend API{'\n'}
+            🔗 Backend Status: {backendStatus === 'connected' ? 'Connected' : 'Disconnected'}{'\n'}
             📱 Login via mobile number and OTP{'\n'}
-            🧪 <Text style={styles.highlightText}>TEST MODE</Text> - Auto Login with Test OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
+            🧪 <Text style={styles.highlightText}>TEST MODE</Text> - Use OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
             🚀 <Text style={styles.highlightText}>IMMEDIATE LOGIN</Text> - Enter phone number to go directly to Driver Home{'\n'}
             ⚡ <Text style={styles.highlightText}>Instant access</Text> - No delays{'\n'}
-            📱 Platform: {Platform.OS} | Version: {Platform.Version}
+            📱 Platform: {Platform.OS} | Version: {Platform.Version}{'\n'}
+            🔐 Auth Method: {authMethod === 'firebase' ? 'Firebase' : 'Backend'}
           </Text>
         </Card>
 
@@ -261,22 +366,46 @@ export default function LoginScreen({ onLogin }) {
                   accessibilityLabel: 'Mobile Number',
                 }}
               />
-              
               <Button
-                title={
-                  isAutoLoggingIn 
-                    ? "🚀 Logging In..." 
-                    : formattedPhone && formattedPhone.length >= 10 
-                      ? "🚀 Immediate Login (Test Mode)" 
-                      : "Enter Phone Number"
-                }
+                title={loading ? 'Sending OTP...' : 'Send OTP'}
                 onPress={handleSendOTP}
-                loading={loading || isAutoLoggingIn}
-                disabled={!formattedPhone || formattedPhone.length < 10 || isAutoLoggingIn}
-                icon={isAutoLoggingIn ? "rocket" : "key"}
+                loading={loading}
+                disabled={!isPhoneValid() || loading}
+                icon="key"
                 size="large"
                 style={styles.submitButton}
               />
+              
+              {/* Test Mode Button for when Firebase phone auth fails */}
+              <Button
+                title="Test Mode Login (Skip Firebase)"
+                onPress={handleTestLogin}
+                variant="outlined"
+                size="medium"
+                style={{ marginTop: 8 }}
+                textStyle={{ color: Colors.light.primary }}
+              />
+              
+              {/* Divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              
+              <Button
+                title="Continue with Google"
+                onPress={handleGoogleSignIn}
+                loading={loading}
+                icon="logo-google"
+                size="large"
+                style={styles.googleButton}
+                textStyle={{ color: 'white', fontWeight: '600' }}
+              />
+              
+              <Text style={styles.googleSignInText}>
+                Quick and secure sign-in with your Google account
+              </Text>
               
               {/* Debug info */}
               {__DEV__ && (
@@ -284,23 +413,6 @@ export default function LoginScreen({ onLogin }) {
                   Phone: {phone || 'none'} | Formatted: {formattedPhone || 'none'} | Length: {formattedPhone?.length || 0}
                 </Text>
               )}
-
-              {/* Skip Login Button */}
-              <Button
-                title="Skip Login"
-                onPress={() => {
-                  onLogin('mock-token', {
-                    id: 'mock-driver',
-                    name: 'Demo Driver',
-                    phone: '+10000000000',
-                    car: 'Demo Car',
-                    email: 'demo@driver.com',
-                  });
-                }}
-                variant="ghost"
-                size="medium"
-                style={styles.backButton}
-              />
             </View>
           )}
 
@@ -397,282 +509,242 @@ export default function LoginScreen({ onLogin }) {
   );
 }
 
+// --- Styles (keep as in original, or simplify as needed) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
   },
-  
-  keyboardView: {
-    flex: 1,
-  },
-  
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.xl,
+    padding: 24,
   },
-  
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  
-  loadingContent: {
-    flex: 1,
-    justifyContent: 'center',
+  header: {
     alignItems: 'center',
+    marginBottom: 32,
   },
-  
   logoContainer: {
     width: 80,
     height: 80,
-    borderRadius: BorderRadius.xl,
+    borderRadius: 40,
     backgroundColor: Colors.light.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
-    ...Shadows.base,
+    marginBottom: 16,
   },
-  
-  loadingSpinner: {
-    marginVertical: Spacing.lg,
-  },
-  
-  loadingText: {
-    ...Typography.body1,
-    color: Colors.light.textSecondary,
-  },
-  
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing['3xl'],
-  },
-  
   appTitle: {
-    ...Typography.h1,
-    color: Colors.light.text,
-    marginTop: Spacing.base,
-    marginBottom: Spacing.sm,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.light.primary,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  
   appSubtitle: {
-    ...Typography.body2,
+    fontSize: 16,
     color: Colors.light.textSecondary,
     textAlign: 'center',
   },
-  
   statusCard: {
-    marginBottom: Spacing.xl,
+    marginBottom: 24,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
-  
   statusText: {
-    ...Typography.body2,
+    fontSize: 14,
     color: Colors.light.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
-  
   highlightText: {
     color: Colors.light.primary,
     fontWeight: 'bold',
   },
-  
   formCard: {
-    marginBottom: Spacing.xl,
+    marginBottom: 24,
     backgroundColor: Colors.light.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    ...Shadows.lg,
+    borderRadius: 16,
+    padding: 24,
   },
-  
   formTitle: {
-    ...Typography.h2,
+    fontSize: 22,
+    fontWeight: 'bold',
     color: Colors.light.text,
     textAlign: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: 24,
   },
-  
-  formSection: {
-    // Form section styling
-  },
-  
-  phoneDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.light.surfaceSecondary,
-    padding: Spacing.base,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
-  },
-  
-  phoneText: {
-    ...Typography.body2,
-    color: Colors.light.textSecondary,
-    marginLeft: Spacing.sm,
-  },
-  
-  registrationSection: {
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.borderLight,
-  },
-  
-  helpText: {
-    ...Typography.body2,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginBottom: Spacing.lg,
-  },
-  
-  submitButton: {
-    marginTop: Spacing.lg,
-  },
-  
-  backButton: {
-    marginTop: Spacing.base,
-  },
-  
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.light.error + '10',
-    padding: Spacing.base,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
     borderLeftWidth: 3,
     borderLeftColor: Colors.light.error,
   },
-  
   errorText: {
-    ...Typography.body2,
     color: Colors.light.error,
-    marginLeft: Spacing.sm,
+    marginLeft: 8,
     flex: 1,
   },
-  
-  footer: {
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-  },
-  
-  footerText: {
-    ...Typography.caption,
-    color: Colors.light.textTertiary,
-    textAlign: 'center',
-  },
-  
-  testFocusButton: {
-    marginRight: Spacing.base,
-  },
-  
-  testInputContainer: {
-    marginBottom: Spacing.xl,
-  },
-  
-  testInputLabel: {
-    ...Typography.body2,
-    color: Colors.light.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  
-  testInput: {
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.light.borderLight,
-    borderRadius: BorderRadius.lg,
-  },
-  
-  minimalTestInput: {
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.light.borderLight,
-    borderRadius: BorderRadius.lg,
-  },
-  
-  simpleTestContainer: {
-    marginBottom: Spacing.xl,
-  },
-  
-  simpleTestLabel: {
-    ...Typography.body2,
-    color: Colors.light.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  
-  simpleTestInput: {
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.light.borderLight,
-    borderRadius: BorderRadius.lg,
-  },
-  
-  directInputContainer: {
-    marginBottom: Spacing.xl,
-  },
-  
-  directInputLabel: {
-    ...Typography.body2,
-    color: Colors.light.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  
-  directInput: {
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.light.borderLight,
-    borderRadius: BorderRadius.lg,
-  },
-  
-  testOtpButton: {
-    marginTop: Spacing.base,
-  },
-  
-  debugText: {
-    ...Typography.caption,
-    color: Colors.light.textTertiary,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-    fontFamily: 'monospace',
-  },
-  
-  testOtpInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.primary + '10',
-    padding: Spacing.base,
-    borderRadius: BorderRadius.lg,
-    marginTop: Spacing.base,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.light.primary,
-  },
-  
-  testOtpText: {
-    ...Typography.body2,
-    color: Colors.light.textSecondary,
-    marginLeft: Spacing.sm,
-    flex: 1,
-  },
-  
   successContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.light.success + '10',
-    padding: Spacing.base,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
     borderLeftWidth: 3,
     borderLeftColor: Colors.light.success,
   },
-  
   successText: {
-    ...Typography.body2,
     color: Colors.light.success,
-    marginLeft: Spacing.sm,
+    marginLeft: 8,
     flex: 1,
   },
+  formSection: {
+    marginBottom: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    marginBottom: 4,
+  },
+  inputBox: {
+    backgroundColor: Colors.light.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 8,
+    padding: 12,
+  },
+  button: {
+    backgroundColor: Colors.light.primary,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  buttonOutlineText: {
+    color: Colors.light.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.light.border,
+  },
+  dividerText: {
+    color: Colors.light.textSecondary,
+    marginHorizontal: 8,
+    fontWeight: '500',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  googleButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  googleSignInText: {
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  phoneDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.surfaceSecondary,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  phoneText: {
+    color: Colors.light.textSecondary,
+    marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContent: {
+    alignItems: 'center',
+  },
+  loadingSpinner: {
+    marginBottom: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.light.primary,
+  },
+  testOtpInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  testOtpText: {
+    color: Colors.light.textSecondary,
+    marginLeft: 8,
+  },
+  registrationSection: {
+    marginBottom: 16,
+  },
+  helpText: {
+    color: Colors.light.textSecondary,
+    marginBottom: 8,
+  },
+  submitButton: {
+    marginBottom: 12,
+  },
+  backButton: {
+    marginTop: 8,
+  },
+  footer: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: Colors.light.textSecondary,
+    fontSize: 14,
+  },
+  debugText: {
+    color: Colors.light.textSecondary,
+    marginTop: 8,
+  },
 });
+  
   
