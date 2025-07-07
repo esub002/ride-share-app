@@ -40,7 +40,7 @@ export default function LoginScreen({ onLogin }) {
   const [backendStatus, setBackendStatus] = useState('checking');
   const [formattedPhone, setFormattedPhone] = useState("");
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
-  const [verificationId, setVerificationId] = useState("");
+  const [confirmation, setConfirmation] = useState(null); // Store confirmation object for OTP
   const [authMethod, setAuthMethod] = useState('firebase'); // 'firebase' or 'backend'
   
   const phoneInputRef = useRef(null);
@@ -94,80 +94,44 @@ export default function LoginScreen({ onLogin }) {
     }
     setLoading(true);
     try {
-      console.log('📱 Sending OTP to:', formattedPhone);
-      
-      // Try Firebase first, fallback to backend
-      let result;
-      
-      try {
-        // Try Firebase phone auth
-        result = await firebaseAuthService.signInWithPhone(formattedPhone);
-        setAuthMethod('firebase');
-        console.log('✅ Using Firebase phone auth');
-      } catch (firebaseError) {
-        console.warn('⚠️ Firebase phone auth failed, trying backend:', firebaseError);
-        
-        // Fallback to backend API
-        result = await phoneAuthFallback.sendOTP(formattedPhone);
-        setAuthMethod('backend');
-        console.log('✅ Using backend phone auth');
-      }
-      
-      if (result.success && result.verificationId) {
-        setVerificationId(result.verificationId);
+      // Use native Firebase SDK for phone auth
+      const result = await firebaseAuthService.signInWithPhone(formattedPhone);
+      if (result.success && result.confirmation) {
+        setConfirmation(result.confirmation);
         setStep('otp');
-        console.log('✅ OTP sent successfully via', authMethod);
       } else {
         setError(result.error || 'Failed to send OTP');
       }
     } catch (error) {
-      console.error('❌ Error sending OTP:', error);
       setError(error.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
-  }, [formattedPhone, authMethod]);
+  }, [formattedPhone]);
 
   const handleVerifyOTP = useCallback(async () => {
     setError("");
     if (!isOTPValid()) return;
     setLoading(true);
     try {
-      console.log('🔐 Verifying OTP via', authMethod);
-      
-      let result;
-      
-      if (authMethod === 'firebase') {
-        // Use Firebase auth
-        result = await firebaseAuthService.verifyOTP(verificationId, otp);
-      } else {
-        // Use backend auth
-        result = await phoneAuthFallback.verifyOTP(verificationId, otp, {
-          name: name || 'Driver',
-          carInfo: carInfo || 'Vehicle'
-        });
+      if (!confirmation) {
+        setError('No confirmation object. Please request OTP again.');
+        setStep('phone');
+        return;
       }
-      
+      const result = await firebaseAuthService.verifyOTP(confirmation, otp);
       if (result.success && result.user) {
-        console.log('✅ OTP verification successful');
-        
-        // Store user globally and set API token
         global.user = result.user;
-        if (result.token) {
-          apiService.setToken(result.token);
-        }
-        
         onLogin(result.user.uid, result.user);
       } else {
         setError(result.error || 'Invalid OTP or login failed');
       }
     } catch (error) {
-      console.error('❌ Error verifying OTP:', error);
       setError(error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
-  }, [verificationId, otp, onLogin, authMethod, name, carInfo]);
+  }, [confirmation, otp, onLogin]);
 
   const handleGoogleSignIn = useCallback(async () => {
     setError("");
