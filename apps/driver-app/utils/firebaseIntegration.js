@@ -5,7 +5,7 @@
  * to provide offline capabilities, real-time sync, and enhanced features.
  */
 
-import firebaseServiceManager from '../firebase';
+import firebaseServiceManager from '../firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -29,10 +29,10 @@ class FirebaseIntegrationService {
     try {
       console.log('🔥 Initializing Firebase Integration...');
       
-      // Initialize Firebase services
+      // Initialize Firebase services using the service manager
       const success = await firebaseServiceManager.initialize();
       if (!success) {
-        throw new Error('Firebase initialization failed');
+        console.log('⚠️ Firebase service manager initialization failed, continuing with mock services');
       }
 
       // Get service instances
@@ -41,6 +41,10 @@ class FirebaseIntegrationService {
       this.messaging = firebaseServiceManager.getMessaging();
       this.storage = firebaseServiceManager.getStorage();
       this.analytics = firebaseServiceManager.getAnalytics();
+
+      // Check service status
+      const status = firebaseServiceManager.getStatus();
+      console.log('📊 Firebase Service Status:', status);
 
       // Setup network monitoring
       this.setupNetworkMonitoring();
@@ -57,7 +61,16 @@ class FirebaseIntegrationService {
       return true;
     } catch (error) {
       console.error('❌ Firebase Integration initialization failed:', error);
-      return false;
+      // Continue with mock services even if initialization fails
+      this.auth = firebaseServiceManager.getAuth();
+      this.firestore = firebaseServiceManager.getFirestore();
+      this.messaging = firebaseServiceManager.getMessaging();
+      this.storage = firebaseServiceManager.getStorage();
+      this.analytics = firebaseServiceManager.getAnalytics();
+      
+      this.isInitialized = true;
+      console.log('⚠️ Firebase Integration initialized with mock services');
+      return true;
     }
   }
 

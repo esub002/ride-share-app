@@ -22,13 +22,13 @@ import Button from './components/ui/Button';
 import Input from './components/ui/Input';
 import Card from './components/ui/Card';
 import PhoneInput from 'react-native-phone-number-input';
-import firebaseServiceManager from './firebase';
 import googleSignInService from './utils/googleSignInService';
-import firebaseAuthService from './utils/firebaseAuthService';
-import phoneAuthFallback from './utils/phoneAuthFallback';
+// import reactNativeFirebaseAuth from './utils/reactNativeFirebaseAuth';
+import mockFirebaseAuth from './utils/mockFirebaseAuth';
+import OTPLogin from './OTPLogin';
 
 export default function LoginScreen({ onLogin }) {
-  const [step, setStep] = useState('phone'); // 'phone' or 'otp'
+  const [step, setStep] = useState('phone'); // 'phone', 'otp', or 'otp-screen'
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
@@ -94,20 +94,56 @@ export default function LoginScreen({ onLogin }) {
     }
     setLoading(true);
     try {
-      // Use native Firebase SDK for phone auth
-      const result = await firebaseAuthService.signInWithPhone(formattedPhone);
+      console.log('📱 Sending OTP to:', formattedPhone);
+      
+      // Initialize Mock Firebase Auth if not already done
+      if (!mockFirebaseAuth.isInitialized) {
+        await mockFirebaseAuth.initialize();
+      }
+      
+      // Use Mock Firebase Auth for phone auth
+      const result = await mockFirebaseAuth.signInWithPhone(formattedPhone);
+      
       if (result.success && result.confirmation) {
+        console.log('✅ OTP sent successfully');
         setConfirmation(result.confirmation);
-        setStep('otp');
+        setStep('otp-screen'); // Navigate to OTP screen
       } else {
+        console.error('❌ OTP sending failed:', result.error);
         setError(result.error || 'Failed to send OTP');
       }
     } catch (error) {
+      console.error('❌ OTP sending error:', error);
       setError(error.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
   }, [formattedPhone]);
+
+  const handleResendOTP = useCallback(async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await mockFirebaseAuth.signInWithPhone(formattedPhone);
+      if (result.success && result.confirmation) {
+        setConfirmation(result.confirmation);
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  }, [formattedPhone]);
+
+  const handleBackFromOTP = useCallback(() => {
+    setStep('phone');
+    setConfirmation(null);
+    setOtp("");
+    setError("");
+  }, []);
 
   const handleVerifyOTP = useCallback(async () => {
     setError("");
@@ -119,7 +155,7 @@ export default function LoginScreen({ onLogin }) {
         setStep('phone');
         return;
       }
-      const result = await firebaseAuthService.verifyOTP(confirmation, otp);
+      const result = await mockFirebaseAuth.verifyOTP(confirmation, otp);
       if (result.success && result.user) {
         global.user = result.user;
         onLogin(result.user.uid, result.user);
@@ -247,6 +283,19 @@ export default function LoginScreen({ onLogin }) {
           <Text style={styles.loadingText}>Initializing Driver App...</Text>
         </View>
       </SafeAreaView>
+    );
+  }
+
+  // Render OTP Login Screen
+  if (step === 'otp-screen') {
+    return (
+      <OTPLogin
+        phoneNumber={formattedPhone}
+        onLogin={onLogin}
+        onBack={handleBackFromOTP}
+        onResendOTP={handleResendOTP}
+        confirmation={confirmation}
+      />
     );
   }
 

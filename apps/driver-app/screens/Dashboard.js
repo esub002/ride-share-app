@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, ActivityIn
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import socket from '../utils/socket';
-import firebaseServiceManager from '../firebase';
+import firebaseServiceManager from './firebaseConfig';
 
 // Memoized ride card component for better performance
 const RideCard = React.memo(({ ride, onAccept, onReject }) => (

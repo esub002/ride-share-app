@@ -1,6 +1,6 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import auth from '@react-native-firebase/auth';
-import firebaseServiceManager from '../firebase';
+import { firebaseServiceManager } from '../firebaseConfig';
 import apiService from './api';
 
 class GoogleSignInService {

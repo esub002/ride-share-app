@@ -4,7 +4,7 @@
  * This script helps set up and test Firebase integration for the driver app.
  */
 
-import firebaseServiceManager from './firebase';
+import firebaseServiceManager from './firebaseConfig';
 import firebaseIntegration from './utils/firebaseIntegration';
 import apiService from './utils/api';
 
