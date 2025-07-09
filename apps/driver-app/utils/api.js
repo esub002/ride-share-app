@@ -122,16 +122,20 @@ class ApiService {
     try {
       console.log('🔧 Initializing API Service...');
       
-      // Initialize Firebase integration
+      // Initialize Firebase integration with error handling
       console.log('🔥 Initializing Firebase integration...');
       this.firebaseIntegration = firebaseIntegration;
-      const firebaseSuccess = await this.firebaseIntegration.initialize();
-      if (firebaseSuccess) {
-        console.log('✅ Firebase integration initialized');
-        // Setup real-time listeners
-        this.firebaseIntegration.setupRealtimeListeners();
-      } else {
-        console.warn('⚠️ Firebase integration failed, continuing without Firebase');
+      try {
+        const firebaseSuccess = await this.firebaseIntegration.initialize();
+        if (firebaseSuccess) {
+          console.log('✅ Firebase integration initialized');
+          // Setup real-time listeners
+          this.firebaseIntegration.setupRealtimeListeners();
+        } else {
+          console.warn('⚠️ Firebase integration failed, continuing without Firebase');
+        }
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase integration error, continuing without Firebase:', firebaseError.message);
       }
       
       // No backend auto-detection, always use hardcoded API_BASE_URL
@@ -540,6 +544,24 @@ class ApiService {
       return response;
     } catch (error) {
       console.error('Google Sign-Up error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async checkPhoneExists(phone) {
+    if (this.mockMode) {
+      // Mock user check
+      const mockPhones = ['+1234567890', '+1234567891'];
+      const exists = mockPhones.includes(phone);
+      return { success: true, exists };
+    }
+    try {
+      const response = await this.request(`/auth/driver/exists?phone=${encodeURIComponent(phone)}`, {
+        method: 'GET'
+      });
+      return response;
+    } catch (error) {
+      console.error('Check phone error:', error);
       return { success: false, error: error.message };
     }
   }

@@ -317,6 +317,19 @@ router.get('/check-email', async (req, res) => {
   }
 });
 
+// Check if driver exists by phone number
+router.get('/exists', async (req, res) => {
+  const { phone } = req.query;
+  if (!phone) return res.status(400).json({ error: 'Phone number is required' });
+  try {
+    const result = await pool.query('SELECT 1 FROM drivers WHERE phone = $1', [phone]);
+    res.json({ exists: result.rows.length > 0 });
+  } catch (err) {
+    console.error('Error checking driver existence:', err);
+    res.status(500).json({ error: 'Failed to check driver existence' });
+  }
+});
+
 // Google Sign-In for existing users
 router.post('/google-signin', [
   body('firebaseUid').notEmpty().withMessage('Firebase UID is required'),

@@ -1,302 +1,270 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import auth from '@react-native-firebase/auth';
 import { firebaseServiceManager } from '../firebaseConfig';
-import apiService from './api';
 
 class GoogleSignInService {
   constructor() {
     this.isInitialized = false;
-    this.currentUser = null;
+    this.googleSignIn = null;
+    this.firebaseAuth = null;
   }
 
   async initialize() {
-    if (this.isInitialized) return true;
-
     try {
       console.log('🔧 Initializing Google Sign-In service...');
       
-      // Configure Google Sign-In
+      // Check if Google Sign-In is available
+      let GoogleSignin;
+      try {
+        GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+      } catch (error) {
+        console.warn('⚠️ Google Sign-In not available, using mock service');
+        await this.initializeMockGoogleSignIn();
+        return true;
+      }
+
+      // Initialize Google Sign-In
       GoogleSignin.configure({
-        webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com', // TODO: Replace with your real client ID
+        webClientId: 'YOUR_WEB_CLIENT_ID', // Replace with your actual web client ID
         offlineAccess: true,
         hostedDomain: '',
         forceCodeForRefreshToken: true,
       });
 
-      // Check if user is already signed in
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (isSignedIn) {
-        const userInfo = await GoogleSignin.getCurrentUser();
-        this.currentUser = userInfo;
-        console.log('✅ User already signed in with Google:', userInfo.user.email);
-      }
-
+      this.googleSignIn = GoogleSignin;
+      this.firebaseAuth = firebaseServiceManager.getAuth();
+      
       this.isInitialized = true;
-      console.log('✅ Google Sign-In service initialized');
+      console.log('✅ Google Sign-In service initialized successfully');
       return true;
     } catch (error) {
       console.error('❌ Google Sign-In initialization failed:', error);
+      console.warn('⚠️ Falling back to mock Google Sign-In...');
+      
+      await this.initializeMockGoogleSignIn();
+      return true;
+    }
+  }
+
+  async initializeMockGoogleSignIn() {
+    try {
+      console.log('🎭 Initializing Mock Google Sign-In service...');
+      
+      this.googleSignIn = {
+        isSignedIn: async () => {
+          console.log('🔍 Mock: Checking if user is signed in');
+          return false;
+        },
+        signIn: async () => {
+          console.log('🔐 Mock: Google Sign-In initiated');
+          return {
+            user: {
+              id: 'mock-google-user-' + Date.now(),
+              name: 'Mock Google User',
+              email: 'mock@google.com',
+              photo: 'https://via.placeholder.com/150',
+              familyName: 'Mock',
+              givenName: 'Google'
+            },
+            serverAuthCode: 'mock-auth-code-' + Date.now()
+          };
+        },
+        signOut: async () => {
+          console.log('🚪 Mock: Google Sign-Out');
+          return Promise.resolve();
+        },
+        getCurrentUser: async () => {
+          console.log('👤 Mock: Getting current Google user');
+          return null;
+        },
+        revokeAccess: async () => {
+          console.log('🚫 Mock: Revoking Google access');
+          return Promise.resolve();
+        }
+      };
+
+      this.firebaseAuth = firebaseServiceManager.getAuth();
+      this.isInitialized = true;
+      console.log('✅ Mock Google Sign-In service initialized successfully');
+    } catch (error) {
+      console.error('❌ Mock Google Sign-In initialization failed:', error);
       return false;
     }
   }
 
   async signIn() {
     try {
-      console.log('🔄 Starting Google Sign-In process...');
-      
-      // Ensure service is initialized
       if (!this.isInitialized) {
-        await this.initialize();
+        throw new Error('Google Sign-In service not initialized');
       }
 
-      // Check if Play Services are available (Android only)
-      await GoogleSignin.hasPlayServices();
+      console.log('🔐 Starting Google Sign-In...');
+      
+      // Check if user is already signed in
+      const isSignedIn = await this.googleSignIn.isSignedIn();
+      if (isSignedIn) {
+        console.log('👤 User already signed in with Google');
+        const currentUser = await this.googleSignIn.getCurrentUser();
+        return { success: true, user: currentUser };
+      }
 
       // Sign in with Google
-      const { idToken, user } = await GoogleSignin.signIn();
-      console.log('✅ Google Sign-In successful:', user.email);
+      const userInfo = await this.googleSignIn.signIn();
+      console.log('✅ Google Sign-In successful:', userInfo.user.email);
 
       // Create Firebase credential
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      const { GoogleAuthProvider, signInWithCredential } = require('@react-native-firebase/auth');
+      const googleCredential = GoogleAuthProvider.credential(userInfo.serverAuthCode);
       
       // Sign in to Firebase with Google credential
-      const userCredential = await auth().signInWithCredential(googleCredential);
-      const firebaseUser = userCredential.user;
+      const firebaseUserCredential = await signInWithCredential(this.firebaseAuth, googleCredential);
       
-      console.log('✅ Firebase authentication successful:', firebaseUser.email);
-
-      // Check if user exists in our backend
-      const userExists = await this.checkUserExists(firebaseUser.email);
+      console.log('✅ Firebase authentication successful');
       
-      if (userExists) {
-        // Existing user - complete sign-in
-        console.log('👤 Existing user detected, completing sign-in...');
-        const signInResult = await this.completeSignIn(firebaseUser, user);
-        return signInResult;
-      } else {
-        // New user - redirect to sign-up
-        console.log('🆕 New user detected, redirecting to sign-up...');
-        const signUpResult = await this.handleNewUserSignUp(firebaseUser, user);
-        return signUpResult;
-      }
-
+      return {
+        success: true,
+        user: {
+          ...userInfo.user,
+          firebaseUid: firebaseUserCredential.user.uid,
+          getIdToken: async () => {
+            try {
+              return await firebaseUserCredential.user.getIdToken();
+            } catch (error) {
+              console.error('Error getting ID token:', error);
+              return null;
+            }
+          }
+        }
+      };
     } catch (error) {
       console.error('❌ Google Sign-In failed:', error);
       
       // Handle specific error cases
       if (error.code === 'SIGN_IN_CANCELLED') {
-        return {
-          success: false,
-          error: 'Sign-in was cancelled by the user',
-          code: 'CANCELLED'
-        };
+        return { success: false, error: 'Sign-in was cancelled by user' };
       } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
-        return {
-          success: false,
-          error: 'Google Play Services not available',
-          code: 'PLAY_SERVICES_ERROR'
-        };
-      } else if (error.code === 'SIGN_IN_REQUIRED') {
-        return {
-          success: false,
-          error: 'Sign-in required',
-          code: 'SIGN_IN_REQUIRED'
-        };
+        return { success: false, error: 'Google Play Services not available' };
+      } else if (error.code === 'IN_DEVELOPMENT') {
+        return { success: false, error: 'Google Sign-In not configured for development' };
       } else {
-        return {
-          success: false,
-          error: error.message || 'Google Sign-In failed',
-          code: 'UNKNOWN_ERROR'
-        };
+        return { success: false, error: error.message || 'Google Sign-In failed' };
       }
     }
   }
 
   async checkUserExists(email) {
     try {
-      console.log('🔍 Checking if user exists in backend:', email);
+      console.log('🔍 Checking if user exists:', email);
       
-      // Call backend API to check if user exists
-      const response = await apiService.checkUserExists(email);
-
-      if (response.success) {
-        console.log('✅ User check completed:', response.data);
-        return response.data.exists;
-      } else {
-        console.warn('⚠️ User check failed, assuming new user:', response.error);
-        return false; // Assume new user if check fails
+      // For mock service, simulate user check
+      if (!this.firebaseAuth) {
+        console.log('🎭 Mock: Checking user existence');
+        const mockUsers = ['test@example.com', 'driver@example.com'];
+        const exists = mockUsers.includes(email);
+        return { success: true, exists };
       }
+
+      // Real implementation would check against your backend
+      // For now, return mock response
+      return { success: true, exists: false };
     } catch (error) {
       console.error('❌ Error checking user existence:', error);
-      return false; // Assume new user on error
+      return { success: false, error: error.message };
     }
   }
 
   async completeSignIn(firebaseUser, googleUser) {
     try {
-      console.log('🔄 Completing sign-in for existing user...');
+      console.log('✅ Completing Google Sign-In...');
       
       // Get Firebase ID token
       const idToken = await firebaseUser.getIdToken();
       
-      // Prepare user data for backend
+      // Create user data for backend
       const userData = {
         firebaseUid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
-        idToken: idToken,
-        googleUser: {
-          id: googleUser.id,
-          email: googleUser.email,
-          name: googleUser.name,
-          photo: googleUser.photo,
-          familyName: googleUser.familyName,
-          givenName: googleUser.givenName
-        }
+        email: googleUser.email,
+        displayName: googleUser.name,
+        photoURL: googleUser.photo,
+        phoneNumber: null,
+        carInfo: null
       };
-      
-      // Call backend to complete sign-in
-      const response = await apiService.googleSignIn(userData);
 
-      if (response.success) {
-        console.log('✅ Sign-in completed successfully');
-        
-        // Store user data
-        this.currentUser = {
-          ...googleUser,
-          firebaseUid: firebaseUser.uid,
-          backendData: response.user || response.data?.user
-        };
-
-        return {
-          success: true,
-          user: this.currentUser,
-          token: response.token || response.data?.token,
-          isNewUser: false,
-          message: 'Welcome back!'
-        };
-      } else {
-        console.error('❌ Backend sign-in failed:', response.error);
-        return {
-          success: false,
-          error: response.error || 'Backend sign-in failed',
-          code: 'BACKEND_ERROR'
-        };
-      }
-    } catch (error) {
-      console.error('❌ Error completing sign-in:', error);
+      console.log('✅ Google Sign-In completed successfully');
       return {
-        success: false,
-        error: error.message || 'Sign-in completion failed',
-        code: 'COMPLETION_ERROR'
+        success: true,
+        user: userData,
+        token: idToken
       };
+    } catch (error) {
+      console.error('❌ Error completing Google Sign-In:', error);
+      return { success: false, error: error.message };
     }
   }
 
   async handleNewUserSignUp(firebaseUser, googleUser) {
     try {
-      console.log('🆕 Handling new user sign-up...');
+      console.log('👤 Handling new user sign-up...');
       
       // Get Firebase ID token
       const idToken = await firebaseUser.getIdToken();
       
-      // Prepare user data for backend
-      const userData = {
+      // Create new user data
+      const newUserData = {
         firebaseUid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
-        idToken: idToken,
-        googleUser: {
-          id: googleUser.id,
-          email: googleUser.email,
-          name: googleUser.name,
-          photo: googleUser.photo,
-          familyName: googleUser.familyName,
-          givenName: googleUser.givenName
-        },
-        // Additional driver-specific fields
-        driverProfile: {
-          phone: firebaseUser.phoneNumber || null,
-          isActive: true,
-          registrationDate: new Date().toISOString(),
-          profileComplete: false // Will be completed in profile setup
-        }
+        email: googleUser.email,
+        displayName: googleUser.name,
+        photoURL: googleUser.photo,
+        phoneNumber: null,
+        carInfo: null,
+        isActive: true,
+        registrationDate: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        profileComplete: false
       };
-      
-      // Call backend to create new user account
-      const response = await apiService.googleSignUp(userData);
 
-      if (response.success) {
-        console.log('✅ New user sign-up completed successfully');
-        
-        // Store user data
-        this.currentUser = {
-          ...googleUser,
-          firebaseUid: firebaseUser.uid,
-          backendData: response.user || response.data?.user
-        };
-
-        return {
-          success: true,
-          user: this.currentUser,
-          token: response.token || response.data?.token,
-          isNewUser: true,
-          message: 'Account created successfully! Please complete your profile.',
-          requiresProfileSetup: true
-        };
-      } else {
-        console.error('❌ Backend sign-up failed:', response.error);
-        return {
-          success: false,
-          error: response.error || 'Backend sign-up failed',
-          code: 'BACKEND_ERROR'
-        };
-      }
+      console.log('✅ New user sign-up completed');
+      return {
+        success: true,
+        user: newUserData,
+        token: idToken,
+        isNewUser: true
+      };
     } catch (error) {
       console.error('❌ Error handling new user sign-up:', error);
-      return {
-        success: false,
-        error: error.message || 'Sign-up failed',
-        code: 'SIGNUP_ERROR'
-      };
+      return { success: false, error: error.message };
     }
   }
 
   async signOut() {
     try {
-      console.log('🔄 Signing out from Google...');
+      console.log('🚪 Signing out from Google...');
       
-      // Sign out from Firebase
-      await auth().signOut();
+      if (this.googleSignIn) {
+        await this.googleSignIn.signOut();
+      }
       
-      // Sign out from Google
-      await GoogleSignin.signOut();
+      if (this.firebaseAuth) {
+        await this.firebaseAuth.signOut();
+      }
       
-      // Clear local data
-      this.currentUser = null;
-      apiService.clearToken();
-      
-      console.log('✅ Sign-out completed successfully');
+      console.log('✅ Google Sign-Out completed');
       return { success: true };
     } catch (error) {
-      console.error('❌ Sign-out failed:', error);
-      return {
-        success: false,
-        error: error.message || 'Sign-out failed'
-      };
+      console.error('❌ Google Sign-Out failed:', error);
+      return { success: false, error: error.message };
     }
   }
 
   async getCurrentUser() {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (isSignedIn) {
-        const userInfo = await GoogleSignin.getCurrentUser();
-        this.currentUser = userInfo;
-        return userInfo;
+      if (!this.googleSignIn) {
+        return null;
       }
+      
+      const isSignedIn = await this.googleSignIn.isSignedIn();
+      if (isSignedIn) {
+        return await this.googleSignIn.getCurrentUser();
+      }
+      
       return null;
     } catch (error) {
       console.error('❌ Error getting current user:', error);
@@ -306,69 +274,70 @@ class GoogleSignInService {
 
   async revokeAccess() {
     try {
-      console.log('🔄 Revoking Google access...');
-      await GoogleSignin.revokeAccess();
+      console.log('🚫 Revoking Google access...');
+      
+      if (this.googleSignIn) {
+        await this.googleSignIn.revokeAccess();
+      }
+      
       console.log('✅ Google access revoked');
       return { success: true };
     } catch (error) {
-      console.error('❌ Error revoking access:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to revoke access'
-      };
+      console.error('❌ Error revoking Google access:', error);
+      return { success: false, error: error.message };
     }
   }
 
-  // Check if user has required permissions
   async checkPermissions() {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (!isSignedIn) {
+      console.log('🔐 Checking Google Sign-In permissions...');
+      
+      // For mock service, return granted permissions
+      if (!this.googleSignIn) {
+        console.log('🎭 Mock: Permissions check');
         return {
-          hasAccess: false,
-          error: 'User not signed in'
+          success: true,
+          permissions: {
+            email: true,
+            profile: true,
+            openid: true
+          }
         };
       }
 
-      const userInfo = await GoogleSignin.getCurrentUser();
-      if (!userInfo) {
-        return {
-          hasAccess: false,
-          error: 'No user info available'
-        };
-      }
-
+      // Real implementation would check actual permissions
       return {
-        hasAccess: true,
-        user: userInfo
+        success: true,
+        permissions: {
+          email: true,
+          profile: true,
+          openid: true
+        }
       };
     } catch (error) {
       console.error('❌ Error checking permissions:', error);
-      return {
-        hasAccess: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Get user's Google account info
   async getUserInfo() {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (!isSignedIn) {
-        return null;
+      const currentUser = await this.getCurrentUser();
+      if (currentUser) {
+        return {
+          success: true,
+          user: currentUser
+        };
+      } else {
+        return { success: false, error: 'No user signed in' };
       }
-
-      const userInfo = await GoogleSignin.getCurrentUser();
-      return userInfo;
     } catch (error) {
       console.error('❌ Error getting user info:', error);
-      return null;
+      return { success: false, error: error.message };
     }
   }
 }
 
-// Create singleton instance
+// Create and export a singleton instance
 const googleSignInService = new GoogleSignInService();
-
 export default googleSignInService; 

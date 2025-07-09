@@ -1,21 +1,37 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text } from 'react-native';
+import { View, TextInput, Button, Text, Alert } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import apiService from './utils/api';
 
-export default function OTPLogin() {
+export default function OTPLogin({ navigation }) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [confirm, setConfirm] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Step 1: Send OTP
-  const sendOTP = async () => {
+  // Step 1: Check if phone exists, then send OTP or go to signup
+  const handleSendOTP = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const confirmation = await auth().signInWithPhoneNumber(phone);
-      setConfirm(confirmation);
-      setError('');
+      const res = await apiService.checkPhoneExists(phone);
+      if (res.success && res.exists) {
+        // Phone exists, proceed with OTP
+        const confirmation = await auth().signInWithPhoneNumber(phone);
+        setConfirm(confirmation);
+      } else if (res.success && !res.exists) {
+        // Phone does not exist, go to signup
+        Alert.alert('Not Registered', 'Phone number not found. Please sign up.', [
+          { text: 'OK', onPress: () => navigation.navigate('Signup', { phone }) }
+        ]);
+      } else {
+        setError(res.error || 'Failed to check phone');
+      }
     } catch (e) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,7 +57,7 @@ export default function OTPLogin() {
             keyboardType="phone-pad"
             style={{ borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 20, width: '100%' }}
           />
-          <Button title="Send OTP" onPress={sendOTP} />
+          <Button title={loading ? 'Checking...' : 'Send OTP'} onPress={handleSendOTP} disabled={loading} />
         </>
       ) : (
         <>

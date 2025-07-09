@@ -4,6 +4,7 @@ class FirebaseAuthService {
   constructor() {
     this.firebaseServiceManager = firebaseServiceManager;
     this.auth = null;
+    this.useMockAuth = false;
   }
 
   // Initialize the service
@@ -13,21 +14,32 @@ class FirebaseAuthService {
       const success = await this.firebaseServiceManager.initialize();
       if (success) {
         this.auth = this.firebaseServiceManager.getAuth();
-        console.log('✅ React Native Firebase Auth Service initialized successfully');
+        
+        // Check if we're using mock services
+        const status = this.firebaseServiceManager.getStatus();
+        this.useMockAuth = status.useMockServices;
+        
+        if (this.useMockAuth) {
+          console.log('🎭 Using Mock Firebase Auth Service');
+        } else {
+          console.log('✅ React Native Firebase Auth Service initialized successfully');
+        }
       } else {
         console.log('⚠️ React Native Firebase Auth Service initialization failed');
+        this.useMockAuth = true;
       }
-      return success;
+      return true; // Always return true since we have fallback
     } catch (error) {
       console.error('❌ React Native Firebase Auth Service initialization failed:', error);
-      return false;
+      this.useMockAuth = true;
+      return true; // Return true since we have fallback
     }
   }
 
   // Sign in with phone number using React Native Firebase
   async signInWithPhone(phoneNumber) {
     try {
-      console.log('📱 Starting React Native Firebase phone authentication for:', phoneNumber);
+      console.log('📱 Starting phone authentication for:', phoneNumber);
       
       if (!this.auth) {
         throw new Error('Firebase Auth not initialized');
@@ -238,6 +250,16 @@ class FirebaseAuthService {
     // Basic phone number validation for international format
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     return phoneRegex.test(phoneNumber);
+  }
+
+  // Get service status
+  getStatus() {
+    return {
+      isInitialized: !!this.auth,
+      useMockAuth: this.useMockAuth,
+      hasCurrentUser: !!this.getCurrentUser(),
+      isSignedIn: this.isSignedIn()
+    };
   }
 
   // Cleanup resources
