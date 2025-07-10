@@ -14,13 +14,21 @@ import {
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import apiService from './utils/api';
-import { Colors } from './constants/Colors';
-import { Typography } from './constants/Typography';
-import { Spacing, BorderRadius, Shadows } from './constants/Spacing';
+import { Colors } from './constants/Colors.ts';
+import { Typography } from './constants/Typography.ts';
+import { Spacing, BorderRadius, Shadows } from './constants/Spacing.ts';
 import Button from './components/ui/Button';
 import Input from './components/ui/Input';
 import Card from './components/ui/Card';
-import PhoneInput from 'react-native-phone-number-input';
+
+// Fallback for PhoneInput if it fails to load
+let PhoneInput;
+try {
+  PhoneInput = require('react-native-phone-number-input').default;
+} catch (error) {
+  console.warn('PhoneInput not available, using fallback TextInput');
+  PhoneInput = null;
+}
 
 export default function LoginScreen({ onLogin }) {
   const [step, setStep] = useState('phone'); // 'phone' or 'otp'
@@ -45,16 +53,26 @@ export default function LoginScreen({ onLogin }) {
         console.log('Initializing app...');
         setBackendStatus('checking');
         
-        // Initialize API service
-        await apiService.init();
+        // Initialize API service with error handling
+        try {
+          await apiService.init();
+        } catch (apiError) {
+          console.error('API service initialization failed:', apiError);
+          // Continue with mock mode
+        }
         
         // Test backend connection by checking status
-        const status = apiService.getStatus();
-        console.log('Backend status:', status);
-        
-        if (status.isOnline) {
-          setBackendStatus('connected');
-        } else {
+        try {
+          const status = apiService.getStatus();
+          console.log('Backend status:', status);
+          
+          if (status.isOnline) {
+            setBackendStatus('connected');
+          } else {
+            setBackendStatus('error');
+          }
+        } catch (statusError) {
+          console.error('Status check failed:', statusError);
           setBackendStatus('error');
         }
       } catch (error) {
@@ -65,7 +83,16 @@ export default function LoginScreen({ onLogin }) {
       }
     };
 
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('Initialization timeout, forcing completion');
+      setIsLoading(false);
+      setBackendStatus('error');
+    }, 10000); // 10 second timeout
+
     initializeApp();
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const handleSendOTP = useCallback(async () => {
@@ -182,219 +209,250 @@ export default function LoginScreen({ onLogin }) {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets={false}
-        bounces={false}
-        nestedScrollEnabled={true}
-      >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="car" size={48} color={Colors.light.primary} />
-          </View>
-          <Text style={styles.appTitle}>Driver App</Text>
-          <Text style={styles.appSubtitle}>Professional ride-sharing platform</Text>
-        </View>
-
-        {/* Status Card */}
-        <Card 
-          variant="outlined" 
-          size="small" 
-          style={styles.statusCard}
-          leftIcon="checkmark-circle"
+  // Error boundary for rendering
+  try {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="never"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={false}
+          bounces={false}
+          nestedScrollEnabled={true}
         >
-          <Text style={styles.statusText}>
-            🔗 Connected to Backend API{'\n'}
-            📱 Login via mobile number and OTP{'\n'}
-            🧪 <Text style={styles.highlightText}>TEST MODE</Text> - Auto Login with Test OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
-            🚀 <Text style={styles.highlightText}>IMMEDIATE LOGIN</Text> - Enter phone number to go directly to Driver Home{'\n'}
-            ⚡ <Text style={styles.highlightText}>Instant access</Text> - No delays{'\n'}
-            📱 Platform: {Platform.OS} | Version: {Platform.Version}
-          </Text>
-        </Card>
-
-        {/* Main Form Card */}
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>
-            {step === 'phone' ? "Welcome Back!" : isNewUser ? "Complete Registration" : "Enter OTP"}
-          </Text>
-          
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
-              <Text style={styles.errorText}>{error}</Text>
+          {/* Header Section */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Ionicons name="car" size={48} color={Colors.light.primary} />
             </View>
-          ) : isAutoLoggingIn ? (
-            <View style={styles.successContainer}>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.light.success} />
-              <Text style={styles.successText}>
-                Immediate login successful! Redirecting to Driver Home...
-              </Text>
-            </View>
-          ) : null}
-          
-          {step === 'phone' && (
-            <View style={styles.formSection}>
-              <PhoneInput
-                ref={phoneInputRef}
-                defaultValue={phone}
-                defaultCode="US"
-                layout="first"
-                onChangeText={setPhone}
-                onChangeFormattedText={setFormattedPhone}
-                countryPickerProps={{ withAlphaFilter: true }}
-                withShadow
-                autoFocus={false}
-                containerStyle={{ marginBottom: 16 }}
-                textInputProps={{
-                  placeholder: 'Enter your mobile number',
-                  returnKeyType: 'done',
-                  blurOnSubmit: true,
-                  keyboardType: 'phone-pad',
-                  accessible: true,
-                  accessibilityLabel: 'Mobile Number',
-                }}
-              />
-              
-              <Button
-                title={
-                  isAutoLoggingIn 
-                    ? "🚀 Logging In..." 
-                    : formattedPhone && formattedPhone.length >= 10 
-                      ? "🚀 Immediate Login (Test Mode)" 
-                      : "Enter Phone Number"
-                }
-                onPress={handleSendOTP}
-                loading={loading || isAutoLoggingIn}
-                disabled={!formattedPhone || formattedPhone.length < 10 || isAutoLoggingIn}
-                icon={isAutoLoggingIn ? "rocket" : "key"}
-                size="large"
-                style={styles.submitButton}
-              />
-              
-              {/* Debug info */}
-              {__DEV__ && (
-                <Text style={styles.debugText}>
-                  Phone: {phone || 'none'} | Formatted: {formattedPhone || 'none'} | Length: {formattedPhone?.length || 0}
-                </Text>
-              )}
+            <Text style={styles.appTitle}>Driver App</Text>
+            <Text style={styles.appSubtitle}>Professional ride-sharing platform</Text>
+          </View>
 
-              {/* Skip Login Button */}
-              <Button
-                title="Skip Login"
-                onPress={() => {
-                  onLogin('mock-token', {
-                    id: 'mock-driver',
-                    name: 'Demo Driver',
-                    phone: '+10000000000',
-                    car: 'Demo Car',
-                    email: 'demo@driver.com',
-                  });
-                }}
-                variant="ghost"
-                size="medium"
-                style={styles.backButton}
-              />
-            </View>
-          )}
+          {/* Status Card */}
+          <Card 
+            variant="outlined" 
+            size="small" 
+            style={styles.statusCard}
+            leftIcon="checkmark-circle"
+          >
+            <Text style={styles.statusText}>
+              🔗 Connected to Backend API{'\n'}
+              📱 Login via mobile number and OTP{'\n'}
+              🧪 <Text style={styles.highlightText}>TEST MODE</Text> - Auto Login with Test OTP: <Text style={styles.highlightText}>123456</Text>{'\n'}
+              🚀 <Text style={styles.highlightText}>IMMEDIATE LOGIN</Text> - Enter phone number to go directly to Driver Home{'\n'}
+              ⚡ <Text style={styles.highlightText}>Instant access</Text> - No delays{'\n'}
+              📱 Platform: {Platform.OS} | Version: {Platform.Version}
+            </Text>
+          </Card>
 
-          {step === 'otp' && (
-            <View style={styles.formSection}>
-              <View style={styles.phoneDisplay}>
-                <Ionicons name="phone-portrait" size={20} color={Colors.light.icon} />
-                <Text style={styles.phoneText}>OTP sent to: {formattedPhone}</Text>
+          {/* Main Form Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>
+              {step === 'phone' ? "Welcome Back!" : isNewUser ? "Complete Registration" : "Enter OTP"}
+            </Text>
+            
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={20} color={Colors.light.error} />
+                <Text style={styles.errorText}>{error}</Text>
               </View>
-              
-              <Input
-                label="OTP Code"
-                placeholder="Enter 6-digit OTP"
-                value={otp}
-                onChangeText={setOtp}
-                keyboardType="numeric"
-                maxLength={6}
-                leftIcon="key"
-                required
-                returnKeyType="done"
-                blurOnSubmit={false}
-                ref={otpInputRef}
-              />
-
-              {/* Test OTP Info */}
-              <View style={styles.testOtpInfo}>
-                <Ionicons name="information-circle" size={20} color={Colors.light.primary} />
-                <Text style={styles.testOtpText}>
-                  Test OTP <Text style={styles.highlightText}>123456</Text> has been auto-filled
+            ) : isAutoLoggingIn ? (
+              <View style={styles.successContainer}>
+                <Ionicons name="checkmark-circle" size={20} color={Colors.light.success} />
+                <Text style={styles.successText}>
+                  Immediate login successful! Redirecting to Driver Home...
                 </Text>
               </View>
-
-              {isNewUser && (
-                <View style={styles.registrationSection}>
-                  <Text style={styles.helpText}>
-                    Please provide your details to complete registration
+            ) : null}
+            
+            {step === 'phone' && (
+              <View style={styles.formSection}>
+                {PhoneInput ? (
+                  <PhoneInput
+                    ref={phoneInputRef}
+                    defaultValue={phone}
+                    defaultCode="US"
+                    layout="first"
+                    onChangeText={setPhone}
+                    onChangeFormattedText={setFormattedPhone}
+                    countryPickerProps={{ withAlphaFilter: true }}
+                    withShadow
+                    autoFocus={false}
+                    containerStyle={{ marginBottom: 16 }}
+                    textInputProps={{
+                      placeholder: 'Enter your mobile number',
+                      returnKeyType: 'done',
+                      blurOnSubmit: true,
+                      keyboardType: 'phone-pad',
+                      accessible: true,
+                      accessibilityLabel: 'Mobile Number',
+                    }}
+                  />
+                ) : (
+                  <View style={styles.fallbackPhoneInputContainer}>
+                    <TextInput
+                      style={styles.fallbackPhoneInput}
+                      placeholder="Enter your mobile number"
+                      keyboardType="phone-pad"
+                      value={phone}
+                      onChangeText={setPhone}
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      placeholderTextColor={Colors.light.textTertiary}
+                    />
+                  </View>
+                )}
+                
+                <Button
+                  title={
+                    isAutoLoggingIn 
+                      ? "🚀 Logging In..." 
+                      : formattedPhone && formattedPhone.length >= 10 
+                        ? "🚀 Immediate Login (Test Mode)" 
+                        : "Enter Phone Number"
+                  }
+                  onPress={handleSendOTP}
+                  loading={loading || isAutoLoggingIn}
+                  disabled={!formattedPhone || formattedPhone.length < 10 || isAutoLoggingIn}
+                  icon={isAutoLoggingIn ? "rocket" : "key"}
+                  size="large"
+                  style={styles.submitButton}
+                />
+                
+                {/* Debug info */}
+                {__DEV__ && (
+                  <Text style={styles.debugText}>
+                    Phone: {phone || 'none'} | Formatted: {formattedPhone || 'none'} | Length: {formattedPhone?.length || 0}
                   </Text>
-                  
-                  <Input
-                    label="Full Name"
-                    placeholder="Enter your full name"
-                    value={name}
-                    onChangeText={setName}
-                    autoCapitalize="words"
-                    leftIcon="person"
-                    required
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                  />
-                  
-                  <Input
-                    label="Vehicle Information"
-                    placeholder="e.g., Toyota Prius 2020"
-                    value={carInfo}
-                    onChangeText={setCarInfo}
-                    autoCapitalize="words"
-                    leftIcon="car"
-                    required
-                    returnKeyType="done"
-                    blurOnSubmit={false}
-                  />
+                )}
+
+                {/* Skip Login Button */}
+                <Button
+                  title="Skip Login"
+                  onPress={() => {
+                    onLogin('mock-token', {
+                      id: 'mock-driver',
+                      name: 'Demo Driver',
+                      phone: '+10000000000',
+                      car: 'Demo Car',
+                      email: 'demo@driver.com',
+                    });
+                  }}
+                  variant="ghost"
+                  size="medium"
+                  style={styles.backButton}
+                />
+              </View>
+            )}
+
+            {step === 'otp' && (
+              <View style={styles.formSection}>
+                <View style={styles.phoneDisplay}>
+                  <Ionicons name="phone-portrait" size={20} color={Colors.light.icon} />
+                  <Text style={styles.phoneText}>OTP sent to: {formattedPhone}</Text>
                 </View>
-              )}
+                
+                <Input
+                  label="OTP Code"
+                  placeholder="Enter 6-digit OTP"
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  leftIcon="key"
+                  required
+                  returnKeyType="done"
+                  blurOnSubmit={false}
+                  ref={otpInputRef}
+                />
 
-              <Button
-                title={isNewUser ? "Complete Registration" : "Verify OTP"}
-                onPress={handleVerifyOTP}
-                loading={loading}
-                disabled={!isOTPValid() || (isNewUser && !isRegistrationValid())}
-                icon="checkmark"
-                size="large"
-                style={styles.submitButton}
-              />
+                {/* Test OTP Info */}
+                <View style={styles.testOtpInfo}>
+                  <Ionicons name="information-circle" size={20} color={Colors.light.primary} />
+                  <Text style={styles.testOtpText}>
+                    Test OTP <Text style={styles.highlightText}>123456</Text> has been auto-filled
+                  </Text>
+                </View>
 
-              <Button
-                title="← Back to Phone"
-                onPress={resetForm}
-                variant="ghost"
-                size="medium"
-                style={styles.backButton}
-              />
-            </View>
-          )}
+                {isNewUser && (
+                  <View style={styles.registrationSection}>
+                    <Text style={styles.helpText}>
+                      Please provide your details to complete registration
+                    </Text>
+                    
+                    <Input
+                      label="Full Name"
+                      placeholder="Enter your full name"
+                      value={name}
+                      onChangeText={setName}
+                      autoCapitalize="words"
+                      leftIcon="person"
+                      required
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                    />
+                    
+                    <Input
+                      label="Vehicle Information"
+                      placeholder="e.g., Toyota Prius 2020"
+                      value={carInfo}
+                      onChangeText={setCarInfo}
+                      autoCapitalize="words"
+                      leftIcon="car"
+                      required
+                      returnKeyType="done"
+                      blurOnSubmit={false}
+                    />
+                  </View>
+                )}
+
+                <Button
+                  title={isNewUser ? "Complete Registration" : "Verify OTP"}
+                  onPress={handleVerifyOTP}
+                  loading={loading}
+                  disabled={!isOTPValid() || (isNewUser && !isRegistrationValid())}
+                  icon="checkmark"
+                  size="large"
+                  style={styles.submitButton}
+                />
+
+                <Button
+                  title="← Back to Phone"
+                  onPress={resetForm}
+                  variant="ghost"
+                  size="medium"
+                  style={styles.backButton}
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Secure • Fast • Reliable
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  } catch (error) {
+    console.error('LoginScreen rendering error:', error);
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <View style={styles.loadingContent}>
+          <View style={styles.logoContainer}>
+            <Ionicons name="car" size={64} color="#2563EB" />
+          </View>
+          <Text style={styles.loadingText}>Error loading login screen</Text>
+          <Text style={styles.debugText}>{error.message}</Text>
         </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Secure • Fast • Reliable
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      </SafeAreaView>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -673,6 +731,20 @@ const styles = StyleSheet.create({
     color: Colors.light.success,
     marginLeft: Spacing.sm,
     flex: 1,
+  },
+
+  fallbackPhoneInputContainer: {
+    marginBottom: 16,
+  },
+
+  fallbackPhoneInput: {
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: BorderRadius.lg,
+    fontSize: Typography.body2.fontSize,
+    color: Colors.light.text,
+    fontFamily: Typography.body2.fontFamily,
   },
 });
   
