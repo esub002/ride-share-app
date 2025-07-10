@@ -22,6 +22,12 @@ export const Colors = {
     text: '#333333',             // primary text colour
     textSecondary: '#666666',    // secondary / hint text
     textInverse: '#FFFFFF',      // text on coloured surfaces
+
+    // Icons & borders
+    icon: '#666666',
+    border: '#E0E0E0',
+    borderLight: '#F0F0F0',
+    textTertiary: '#999999',
   },
 
   dark: {
@@ -39,6 +45,11 @@ export const Colors = {
     text: '#FFFFFF',
     textSecondary: '#D1D1D6',
     textInverse: '#000000',
+
+    icon: '#D1D1D6',
+    border: '#3A3A3C',
+    borderLight: '#2C2C2E',
+    textTertiary: '#8E8E93',
   },
 } as const;
 

@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import apiService from './utils/api';
+import firebaseAuthService from './utils/firebaseAuthService';
 import { Colors } from './constants/Colors';
 import { Typography } from './constants/Typography';
 import { Spacing, BorderRadius, Shadows } from './constants/Spacing';
@@ -34,7 +35,16 @@ export default function LoginScreen({ onLogin }) {
   const [isLoading, setIsLoading] = useState(true);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [formattedPhone, setFormattedPhone] = useState("");
-  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
+
+  // Initialise auth service once
+  useEffect(() => {
+    (async () => {
+      await firebaseAuthService.initialize();
+    })();
+  }, []);
+
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false); // retained for possible mock mode quick-fill
   
   const phoneInputRef = useRef(null);
   const otpInputRef = useRef(null);
@@ -70,81 +80,62 @@ export default function LoginScreen({ onLogin }) {
 
   const handleSendOTP = useCallback(async () => {
     console.log('🔵 Send OTP button pressed');
-    console.log('📱 Phone:', phone);
-    console.log('📱 Formatted phone:', formattedPhone);
-    
-    // Simplified validation - just check if we have a phone number
+
     if (!formattedPhone || formattedPhone.length < 10) {
-      console.log('❌ Phone validation failed');
       setError('Please enter a valid phone number');
       return;
     }
-    
+
+    setLoading(true);
+    setError('');
     try {
-      console.log('✅ Phone validation passed, proceeding to OTP step');
-      console.log('🧪 Using test OTP flow - no API call needed');
-      setLoading(true);
-      setError('');
-      
-      // Simulate a brief loading state for better UX
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Skip API call and go directly to OTP step
-      setStep('otp');
-      // Automatically fill test OTP
-      setOtp("123456");
-      console.log('✅ Test OTP filled: 123456');
-      
-      // Immediate auto-login for instant access
-      setIsAutoLoggingIn(true);
-      console.log('🚀 Immediate auto-login starting...');
-      
-      const mockLoginData = {
-        token: 'mock-token-' + Date.now(),
-        driver: {
-          id: 'mock-driver-' + Date.now(),
-          name: name || 'Demo Driver',
-          phone: formattedPhone,
-          car_info: carInfo || 'Demo Car',
-          email: 'demo@driver.com',
+      const result = await firebaseAuthService.signInWithPhone(formattedPhone);
+      if (result.success && result.confirmation) {
+        setConfirmation(result.confirmation);
+        setStep('otp');
+
+        // If using mock auth service, auto-fill test OTP to speed dev
+        if (firebaseAuthService.useMockAuth) {
+          setOtp('123456');
         }
-      };
-      
-      console.log('✅ Immediate mock login successful:', mockLoginData);
-      onLogin(mockLoginData.token, mockLoginData.driver);
-      
-    } catch (error) {
-      console.error('Error in OTP flow:', error);
-      setError('Error in OTP flow. Please try again.');
-      setIsAutoLoggingIn(false);
+      } else {
+        setError(result.error || 'Failed to send OTP. Please try again.');
+      }
+    } catch (err) {
+      console.error('Send OTP error:', err);
+      setError(err.message || 'Unexpected error sending OTP');
     } finally {
       setLoading(false);
     }
-  }, [formattedPhone, phone, name, carInfo, onLogin]);
+  }, [formattedPhone]);
 
   const handleVerifyOTP = useCallback(async () => {
     if (!isOTPValid()) return;
-    
+
+    if (!confirmation) {
+      setError('Please request OTP again');
+      setStep('phone');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
     try {
-      console.log('Verifying OTP for:', formattedPhone);
-      setLoading(true);
-      setError('');
-      
-      const loginData = await apiService.loginDriver(formattedPhone, otp, name, carInfo);
-      console.log('Login response:', loginData);
-      
-      if (loginData.token && loginData.driver) {
-        onLogin(loginData.token, loginData.driver);
+      const result = await firebaseAuthService.verifyOTP(confirmation, otp);
+      if (result.success && result.user) {
+        // For demo we create a mock token; in production exchange with backend.
+        const token = 'session-' + Date.now();
+        onLogin(token, result.user);
       } else {
-        setError('Invalid OTP or login failed');
+        setError(result.error || 'OTP verification failed');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Network error. Please try again.');
+    } catch (err) {
+      console.error('OTP verify error:', err);
+      setError(err.message || 'Unexpected error verifying OTP');
     } finally {
       setLoading(false);
     }
-  }, [formattedPhone, otp, name, carInfo, onLogin, isOTPValid]);
+  }, [confirmation, otp, onLogin]);
 
   const isPhoneValid = () => {
     return phoneInputRef.current?.isValidNumber(phone) && formattedPhone.length > 0;
