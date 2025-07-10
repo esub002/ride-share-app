@@ -3,26 +3,58 @@
  * Consistent spacing values for margins, padding, and layout
  */
 
-// Base spacing unit (4px)
-const baseUnit = 4;
+// Spacing, border-radius and shadow scale for consistent UI spacing across the Driver App.
+// Values follow a 4-point grid for harmony.
 
-// Spacing scale
 export const Spacing = {
-  // Micro spacing
-  xs: baseUnit, // 4px
-  sm: baseUnit * 2, // 8px
-  md: baseUnit * 3, // 12px
-  base: baseUnit * 4, // 16px
-  lg: baseUnit * 5, // 20px
-  xl: baseUnit * 6, // 24px
-  '2xl': baseUnit * 8, // 32px
-  '3xl': baseUnit * 10, // 40px
-  '4xl': baseUnit * 12, // 48px
-  '5xl': baseUnit * 16, // 64px
-  '6xl': baseUnit * 20, // 80px
-  '7xl': baseUnit * 24, // 96px
-  '8xl': baseUnit * 32, // 128px
-};
+  xxs: 2,
+  xs: 4,
+  sm: 8,
+  base: 12,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  '2xl': 40,
+  '3xl': 48,
+  large: 24,   // legacy alias 
+  medium: 16,  // legacy alias
+  small: 8,    // legacy alias
+} as const;
+
+export const BorderRadius = {
+  xs: 2,
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  full: 9999,
+} as const;
+
+export const Shadows = {
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 1.0,
+    elevation: 1,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3.0,
+    elevation: 3,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6.0,
+    elevation: 6,
+  },
+} as const;
+
+export default Spacing;
 
 // Common spacing patterns
 export const Layout = {
@@ -145,65 +177,6 @@ export const Layout = {
   drawerItem: {
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
-  },
-};
-
-// Border radius values
-export const BorderRadius = {
-  none: 0,
-  sm: baseUnit, // 4px
-  base: baseUnit * 1.5, // 6px
-  md: baseUnit * 2, // 8px
-  lg: baseUnit * 3, // 12px
-  xl: baseUnit * 4, // 16px
-  '2xl': baseUnit * 6, // 24px
-  '3xl': baseUnit * 8, // 32px
-  full: 9999,
-};
-
-// Shadow values
-export const Shadows = {
-  none: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  base: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  xl: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 16,
   },
 };
 

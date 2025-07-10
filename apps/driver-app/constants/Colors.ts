@@ -1,161 +1,45 @@
-/**
- * Enhanced Design System for Driver App
- * Modern color palette with semantic colors, gradients, and accessibility considerations
- */
-
-// Primary Brand Colors
-const primaryBlue = '#2563EB';
-const primaryBlueDark = '#1D4ED8';
-const primaryBlueLight = '#3B82F6';
-
-// Secondary Colors
-const secondaryGreen = '#10B981';
-const secondaryOrange = '#F59E0B';
-const secondaryRed = '#EF4444';
-const secondaryPurple = '#8B5CF6';
-
-// Neutral Colors
-const neutral50 = '#F9FAFB';
-const neutral100 = '#F3F4F6';
-const neutral200 = '#E5E7EB';
-const neutral300 = '#D1D5DB';
-const neutral400 = '#9CA3AF';
-const neutral500 = '#6B7280';
-const neutral600 = '#4B5563';
-const neutral700 = '#374151';
-const neutral800 = '#1F2937';
-const neutral900 = '#111827';
-
-// Semantic Colors
-const success = '#10B981';
-const warning = '#F59E0B';
-const error = '#EF4444';
-const info = '#3B82F6';
-
-// Gradients
-const gradients = {
-  primary: ['#2563EB', '#1D4ED8'],
-  secondary: ['#10B981', '#059669'],
-  sunset: ['#F59E0B', '#D97706'],
-  ocean: ['#3B82F6', '#1D4ED8'],
-  purple: ['#8B5CF6', '#7C3AED'],
-};
+// Color palette and theme definitions for the Driver App
+// Providing a single source of truth for colours throughout the application.
+// Feel free to tweak the values to match your brand guidelines.
 
 export const Colors = {
   light: {
-    // Primary Colors
-    primary: primaryBlue,
-    primaryDark: primaryBlueDark,
-    primaryLight: primaryBlueLight,
-    
-    // Background Colors
-    background: neutral50,
-    surface: '#FFFFFF',
-    surfaceSecondary: neutral100,
-    
-    // Text Colors
-    text: neutral900,
-    textSecondary: neutral600,
-    textTertiary: neutral500,
-    textInverse: '#FFFFFF',
-    
-    // Semantic Colors
-    success,
-    warning,
-    error,
-    info,
-    
-    // Border Colors
-    border: neutral200,
-    borderLight: neutral100,
-    
-    // Status Colors
-    online: success,
-    offline: neutral400,
-    busy: warning,
-    
-    // Icon Colors
-    icon: neutral600,
-    iconSelected: primaryBlue,
-    iconDefault: neutral400,
-    
-    // Gradient Colors
-    gradients,
-    
-    // Legacy Support
-    tint: primaryBlue,
-    tabIconDefault: neutral400,
-    tabIconSelected: primaryBlue,
-  },
-  dark: {
-    // Primary Colors
-    primary: primaryBlueLight,
-    primaryDark: primaryBlue,
-    primaryLight: '#60A5FA',
-    
-    // Background Colors
-    background: neutral900,
-    surface: neutral800,
-    surfaceSecondary: neutral700,
-    
-    // Text Colors
-    text: neutral50,
-    textSecondary: neutral300,
-    textTertiary: neutral400,
-    textInverse: neutral900,
-    
-    // Semantic Colors
-    success,
-    warning,
-    error,
-    info,
-    
-    // Border Colors
-    border: neutral700,
-    borderLight: neutral600,
-    
-    // Status Colors
-    online: success,
-    offline: neutral500,
-    busy: warning,
-    
-    // Icon Colors
-    icon: neutral300,
-    iconSelected: primaryBlueLight,
-    iconDefault: neutral500,
-    
-    // Gradient Colors
-    gradients,
-    
-    // Legacy Support
-    tint: primaryBlueLight,
-    tabIconDefault: neutral500,
-    tabIconSelected: primaryBlueLight,
-  },
-};
+    // Brand colours
+    primary: '#007AFF',          // iOS blue / primary action
+    secondary: '#5856D6',        // iOS purple / secondary action
 
-// Common color utilities
-export const ColorUtils = {
-  // Opacity variations
-  withOpacity: (color: string, opacity: number) => {
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    // Semantic colours
+    success: '#34C759',          // iOS green – success states
+    warning: '#FF9500',          // iOS orange – warning states
+    error:   '#FF3B30',          // iOS red   – error states
+
+    // Greyscale / surfaces
+    background: '#FFFFFF',       // global app background
+    surface:     '#F8F9FA',      // cards, list items, inputs
+    surfaceSecondary: '#F0F0F0', // subtle backgrounds / borders
+
+    // Text
+    text: '#333333',             // primary text colour
+    textSecondary: '#666666',    // secondary / hint text
+    textInverse: '#FFFFFF',      // text on coloured surfaces
   },
-  
-  // Status colors
-  getStatusColor: (status: 'online' | 'offline' | 'busy', isDark: boolean = false) => {
-    const theme = isDark ? Colors.dark : Colors.light;
-    switch (status) {
-      case 'online': return theme.online;
-      case 'offline': return theme.offline;
-      case 'busy': return theme.busy;
-      default: return theme.offline;
-    }
+
+  dark: {
+    primary: '#0A84FF',          // iOS system blue (dark)
+    secondary: '#5E5CE6',
+
+    success: '#30D158',          // iOS green (dark)
+    warning: '#FF9F0A',          // iOS orange (dark)
+    error:   '#FF453A',          // iOS red (dark)
+
+    background: '#000000',
+    surface:     '#1C1C1E',
+    surfaceSecondary: '#2C2C2E',
+
+    text: '#FFFFFF',
+    textSecondary: '#D1D1D6',
+    textInverse: '#000000',
   },
-  
-  // Gradient helpers
-  getGradient: (type: keyof typeof gradients) => gradients[type],
-};
+} as const;
+
+export default Colors;
